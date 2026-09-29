@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Box,
   Typography,
   Button,
@@ -15,7 +16,7 @@ import useTonePlayer from '../../hooks/useTonePlayer';
 
 export interface ChordPracticeMetronomeProps {
   /** 메트로놈이 플레이 중일 때 호출되는 콜백 (마디가 끝날 때마다) */
-  onMeasureComplete?: () => void;
+  onMeasureComplete?: (completedMeasures: number) => void;
   /** 메트로놈 상태 변경 시 호출되는 콜백 */
   onPlayStateChange?: (isPlaying: boolean) => void;
   /** 현재 마디 번호 (1-16) */
@@ -36,64 +37,46 @@ const ChordPracticeMetronome: React.FC<ChordPracticeMetronomeProps> = ({
   const [bpm, setBpm] = useState<number>(60);
   const [volume, setVolume] = useState(10);
   const [beat, setBeat] = useState<'4' | '8' | '16'>('4');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
-
-  const isInitialStopSignal = React.useRef(true);
-
-  // 메트로놈 콜백 - 마디가 끝날 때마다 호출
-  const metronomeCallback = () => {
-    onMeasureComplete?.();
-  };
-
-  const { handlePlay, handleStop } = useTonePlayer({
+  const {
+    handlePlay,
+    handleStop,
+    isPlaying,
+    isBusy,
+    countdown,
+    position,
+    error,
+  } = useTonePlayer({
     bpm,
     volume,
     beat,
-    callback: metronomeCallback,
+    totalMeasures,
+    callback: (completedMeasures) => onMeasureComplete?.(completedMeasures),
   });
+  const playStateCallbackRef = useRef(onPlayStateChange);
+  playStateCallbackRef.current = onPlayStateChange;
+  const previousStopSignal = useRef(stopSignal);
 
-  // 시작 버튼 핸들러 (카운트다운 포함)
-  const handleStartMetronome = () => {
-    if (countdown !== null) return;
-
-    setCountdown(5);
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(timer);
-          handlePlay();
-          setIsPlaying(true);
-          onPlayStateChange?.(true);
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  // 정지 버튼 핸들러
-  const handleStopMetronome = () => {
-    handleStop();
-    setIsPlaying(false);
-    setCountdown(null);
-    onPlayStateChange?.(false);
-  };
-
-  // 부모에서 강제 정지 신호 수신
   useEffect(() => {
-    if (stopSignal === undefined) return;
-    if (isInitialStopSignal.current) {
-      isInitialStopSignal.current = false;
-      return;
+    if (!isPlaying || position?.tick === 0) {
+      playStateCallbackRef.current?.(isPlaying);
     }
-    handleStopMetronome();
-  }, [stopSignal]);
+  }, [isPlaying, position?.tick]);
+
+  useEffect(() => {
+    if (previousStopSignal.current !== stopSignal) {
+      previousStopSignal.current = stopSignal;
+      handleStop();
+    }
+  }, [stopSignal, handleStop]);
+
+  const handleStartMetronome = () => {
+    void handlePlay(5);
+  };
 
   // BPM 변경 핸들러
   const onChangeBpm = (_event: Event, value: number | number[]) => {
     const bpmValue = Array.isArray(value) ? value[0] : value;
-    if (bpmValue < 40 || bpmValue >= 300) {
+    if (bpmValue < 40 || bpmValue > 300) {
       return;
     }
     setBpm(bpmValue);
@@ -134,6 +117,8 @@ const ChordPracticeMetronome: React.FC<ChordPracticeMetronomeProps> = ({
         )}
       </Box>
 
+      {error && <Alert severity="error">{error}</Alert>}
+
       {/* 컨트롤 버튼 */}
       <Box mb={1.5} textAlign="center">
         <Stack direction="row" spacing={1.5} justifyContent="center">
@@ -141,7 +126,7 @@ const ChordPracticeMetronome: React.FC<ChordPracticeMetronomeProps> = ({
             variant="contained"
             color="primary"
             onClick={handleStartMetronome}
-            disabled={isPlaying || countdown !== null}
+            disabled={isBusy}
             size="small"
             sx={{ fontSize: '0.8rem', py: 0.5 }}
           >
@@ -150,8 +135,8 @@ const ChordPracticeMetronome: React.FC<ChordPracticeMetronomeProps> = ({
           <Button
             variant="contained"
             color="secondary"
-            onClick={handleStopMetronome}
-            disabled={!isPlaying && countdown === null}
+            onClick={handleStop}
+            disabled={!isBusy}
             size="small"
             sx={{ fontSize: '0.8rem', py: 0.5 }}
           >

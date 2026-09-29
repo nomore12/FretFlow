@@ -30,7 +30,7 @@ const NoteMarker: React.FC<NoteMarkerProps> = ({
       chord: note,
       chromaticNumber: parseInt(note) || 0,
     };
-    handleNodeClick && handleNodeClick(nodeNote);
+    handleNodeClick?.(nodeNote);
   };
 
   return (

@@ -50,7 +50,6 @@ const ChordGridPage: React.FC = () => {
 
   // 메트로놈 상태
   const [currentMeasure, setCurrentMeasure] = useState<number>(0);
-  const [stopSignal, setStopSignal] = useState(0);
 
   // 컴포넌트 마운트 시 랜덤하게 하나의 코드에 포커스
   useEffect(() => {
@@ -68,21 +67,11 @@ const ChordGridPage: React.FC = () => {
   };
 
   // 메트로놈 콜백 - 마디가 끝날 때마다 호출되어 코드 포커스 변경
-  const handleMeasureComplete = () => {
-    setCurrentMeasure((prevMeasure) => {
-      const nextMeasure = prevMeasure + 1;
-
-      // 16마디 완료 시 자동 정지
-      if (nextMeasure >= TOTAL_MEASURES) {
-        setFocusedIndex(0);
-        setStopSignal((prev) => prev + 1);
-        return 0;
-      }
-
-      // 다음 코드로 포커스 이동
-      setFocusedIndex(nextMeasure);
-      return nextMeasure;
-    });
+  const handleMeasureComplete = (completedMeasures: number) => {
+    const nextMeasure =
+      completedMeasures >= TOTAL_MEASURES ? 0 : completedMeasures;
+    setCurrentMeasure(nextMeasure);
+    setFocusedIndex(nextMeasure);
   };
 
   // 메트로놈 플레이 상태 변경 핸들러
@@ -384,7 +373,6 @@ const ChordGridPage: React.FC = () => {
             onPlayStateChange={handlePlayStateChange}
             currentMeasure={currentMeasure}
             totalMeasures={TOTAL_MEASURES}
-            stopSignal={stopSignal}
           />
         </Box>
       </Box>

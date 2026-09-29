@@ -54,8 +54,6 @@ const ChordsPage = () => {
   const [bpm, setBpm] = useState<number>(60);
   const [volume, setVolume] = useState(10);
   const [beat, setBeat] = useState<'4' | '8' | '16'>('4');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
 
   // 코드 진행 옵션 가져오기
   const progressionOptions: ProgressionOption[] = (
@@ -64,7 +62,7 @@ const ChordsPage = () => {
     ] || []
   ).filter((p: any) => p.difficulty <= difficulty);
 
-  const { handlePlay, handleStop } = useTonePlayer({
+  const { handlePlay, handleStop, isBusy, countdown, error } = useTonePlayer({
     bpm,
     volume,
     beat,
@@ -122,27 +120,12 @@ const ChordsPage = () => {
 
   // 시작 버튼 핸들러 (카운트다운 포함)
   const handleStart = () => {
-    if (countdown !== null) return;
-
-    setCountdown(5);
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev === null || prev <= 1) {
-          clearInterval(timer);
-          handlePlay();
-          setIsPlaying(true);
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    void handlePlay(5);
   };
 
   // 정지 버튼 핸들러
   const handleStopAndReset = () => {
     handleStop();
-    setIsPlaying(false);
-    setCountdown(null);
     setCurrentIndex(0);
     setNextIndex(1);
     if (chordArr.length > 0) {
@@ -164,6 +147,12 @@ const ChordsPage = () => {
       <Box py="6">
         <Text size="9">코드 연습</Text>
       </Box>
+
+      {error && (
+        <Text color="red" role="alert">
+          {error}
+        </Text>
+      )}
 
       {/* 설정 영역 */}
       <Box style={{ width: '600px' }}>
@@ -282,25 +271,13 @@ const ChordsPage = () => {
       {/* 컨트롤 버튼 */}
       <Box>
         <Flex gap="4">
-          <Button
-            size="4"
-            onClick={handleStart}
-            disabled={isPlaying || countdown !== null}
-          >
+          <Button size="4" onClick={handleStart} disabled={isBusy}>
             시작
           </Button>
-          <Button
-            size="4"
-            onClick={handleStopAndReset}
-            disabled={!isPlaying && countdown === null}
-          >
+          <Button size="4" onClick={handleStopAndReset} disabled={!isBusy}>
             정지
           </Button>
-          <Button
-            size="4"
-            onClick={generateChords}
-            disabled={isPlaying || countdown !== null}
-          >
+          <Button size="4" onClick={generateChords} disabled={isBusy}>
             새로고침
           </Button>
         </Flex>

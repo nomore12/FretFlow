@@ -1,14 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Card, CardContent, Container } from '@mui/material';
+import { Alert, Box, Card, CardContent, Container } from '@mui/material';
 import RhythmStaff from './RhythmStaff';
 import { Bar, StageId } from './types';
 import ControlUi from './ControlUi';
-import useRhythmPlayback, { ActivePosition } from './useRhythmPlayback';
+import useRhythmPlayback from './useRhythmPlayback';
 import { generateStagePreset } from './rhythmGenerator';
 
 const RhythmPage: React.FC = () => {
   const [bpm, setBpm] = useState(90);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [restAccentEnabled, setRestAccentEnabled] = useState(true);
   const [stageId, setStageId] = useState<StageId>(1);
   const [seed, setSeed] = useState(Date.now());
@@ -66,25 +65,19 @@ const RhythmPage: React.FC = () => {
     (_, i) => marginTop + i * staffSpacing,
   );
 
-  const [activePosition, setActivePosition] = useState<ActivePosition | null>(
-    null,
-  );
-
-  const handleStageChange = (nextStageId: StageId) => {
-    if (nextStageId === stageId) return;
-    setIsPlaying(false);
-    setStageId(nextStageId);
-    setSeed(Date.now()); // Change seed on stage change for fresh patterns
-  };
-
-  useRhythmPlayback({
+  const { isBusy, start, stop, activePosition, error } = useRhythmPlayback({
     bars,
     beatsPerBar,
     bpm,
-    isPlaying,
     restAccentEnabled,
-    onPositionChange: setActivePosition,
   });
+
+  const handleStageChange = (nextStageId: StageId) => {
+    if (nextStageId === stageId) return;
+    stop();
+    setStageId(nextStageId);
+    setSeed(Date.now());
+  };
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -99,8 +92,8 @@ const RhythmPage: React.FC = () => {
         <ControlUi
           bpm={bpm}
           onBpmChange={setBpm}
-          isPlaying={isPlaying}
-          onTogglePlay={() => setIsPlaying((prev) => !prev)}
+          isPlaying={isBusy}
+          onTogglePlay={() => (isBusy ? stop() : void start())}
           restAccentEnabled={restAccentEnabled}
           onRestAccentToggle={setRestAccentEnabled}
           stageId={stageId}
@@ -108,6 +101,8 @@ const RhythmPage: React.FC = () => {
           stageOptions={presetOptions}
           onRegenerate={() => setSeed(Date.now())}
         />
+
+        {error && <Alert severity="error">{error}</Alert>}
 
         <Card
           elevation={3}

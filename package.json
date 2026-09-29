@@ -1,13 +1,12 @@
 {
   "name": "react-typescript",
   "version": "1.0.0",
-  "description": "React and TypeScript example starter project",
+  "description": "기타 코드·리듬·크로매틱 연습 웹 애플리케이션",
   "keywords": [
     "typescript",
     "react",
     "starter"
   ],
-  "main": "src/index.tsx",
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
@@ -16,12 +15,10 @@
     "@mui/material": "^6.4.1",
     "@radix-ui/react-form": "^0.1.2",
     "@radix-ui/themes": "^3.0.5",
-    "loader-utils": "3.2.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-hook-form": "^7.0.0",
     "react-router-dom": "^6.28.0",
-    "react-scripts": "5.0.1",
     "soundfont-player": "^0.12.0",
     "styled-components": "latest",
     "tone": "^15.0.4",
@@ -29,26 +26,35 @@
     "zustand": "^5.0.5"
   },
   "devDependencies": {
-    "@types/react": "18.2.38",
-    "@types/react-dom": "18.2.15",
-    "@typescript-eslint/eslint-plugin": "^7.9.0",
-    "@typescript-eslint/parser": "^7.9.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@typescript-eslint/eslint-plugin": "^8.71.0",
+    "@typescript-eslint/parser": "^8.71.0",
+    "@vitejs/plugin-react": "^6.1.1",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.1.3",
+    "eslint-plugin-react": "^7.37.5",
     "prettier": "^3.2.5",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test --env=jsdom",
-    "eject": "react-scripts eject"
+    "start": "vite",
+    "dev": "vite",
+    "build": "yarn typecheck && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit && tsc --project tsconfig.node.json --noEmit",
+    "lint": "eslint src vite.config.ts --ext .ts,.tsx",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
-  "browserslist": [
-    ">0.2%",
-    "not dead",
-    "not ie <= 11",
-    "not op_mini all"
-  ]
+  "private": true,
+  "engines": {
+    "node": ">=22.12.0 <23"
+  },
+  "packageManager": "yarn@1.22.22",
+  "type": "module"
 }

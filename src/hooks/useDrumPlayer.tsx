@@ -11,10 +11,10 @@ interface DrumPlayerProps {
 const useDrumPlayer = ({ bpm, volume, beat, callback }: DrumPlayerProps) => {
   useEffect(() => {
     // 드럼 소리 파일 로드
-    const kick = new Tone.Player('sounds/kick.wav').toDestination();
-    const snare = new Tone.Player('sounds/snare.wav').toDestination();
-    const hihat = new Tone.Player('sounds/hithat.wav').toDestination();
-    const tom = new Tone.Player('sounds/tom.wav').toDestination();
+    const kick = new Tone.Player('/sounds/Kick.wav').toDestination();
+    const snare = new Tone.Player('/sounds/snare.wav').toDestination();
+    const hihat = new Tone.Player('/sounds/hithat.wav').toDestination();
+    const tom = new Tone.Player('/sounds/tom.wav').toDestination();
 
     // 볼륨 설정
     kick.volume.value = volume;

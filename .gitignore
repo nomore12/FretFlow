@@ -24,6 +24,9 @@ node_modules/
 
 # Build output
 build/
+dist/
+.vercel/
+*.tsbuildinfo
 
 # Task files
 # tasks.json

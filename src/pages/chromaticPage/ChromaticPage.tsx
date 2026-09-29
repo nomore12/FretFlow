@@ -1,8 +1,8 @@
 import React from 'react';
 import ChromaticFlatboard from '../../components/fretboard/ChromaticFlatboard';
-import MetronomeEngine from '../../components/metronome/MetronomeEngine';
 import useNoteStore from '../../store/useNoteStore';
 import {
+  Alert,
   Box,
   TextField,
   Typography,
@@ -40,6 +40,7 @@ const ChromaticPage: React.FC = () => {
     resetToInitialPracticeState,
     handleRandomFingerPattern,
     selectedFretSequence,
+    error,
   } = useChromaticPractice();
 
   const { isPracticePlaying } = useNoteStore();
@@ -60,6 +61,7 @@ const ChromaticPage: React.FC = () => {
   };
 
   const handlePracticeModeChange = (event: SelectChangeEvent<PracticeMode>) => {
+    resetToInitialPracticeState();
     dispatch({
       type: 'SET_PRACTICE_MODE',
       payload: event.target.value as PracticeMode,
@@ -330,6 +332,8 @@ const ChromaticPage: React.FC = () => {
           </CardContent>
         </Card>
 
+        {error && <Alert severity="error">{error}</Alert>}
+
         {/* Fretboard Card */}
         <Card
           elevation={3}
@@ -389,15 +393,6 @@ const ChromaticPage: React.FC = () => {
             : `Stopped. Next start: Mode: ${state.practiceMode.replace(/_/g, ' ')} - String ${state.currentLineNumber} (Ascending) - Pattern: ${state.selectedFingerPattern.join('-')} (Frets: ${selectedFretSequence.join('-')}) - Beat: ${state.beatType}/4`}
         </Typography>
       </Stack>
-
-      <MetronomeEngine
-        bpm={
-          state.bpm === ''
-            ? MIN_BPM
-            : Math.max(MIN_BPM, Math.min(MAX_BPM, Number(state.bpm)))
-        }
-        beatType={state.beatType}
-      />
     </Container>
   );
 };

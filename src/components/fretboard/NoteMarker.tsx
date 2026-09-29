@@ -37,7 +37,7 @@ const NoteMarker: React.FC<NoteMarkerProps> = ({
       lineNumber: string,
       chord: note,
     };
-    handleNodeClick && handleNodeClick(nodeNote);
+    handleNodeClick?.(nodeNote);
   };
 
   return (
@@ -48,7 +48,7 @@ const NoteMarker: React.FC<NoteMarkerProps> = ({
           lineNumber: string,
           chord: note,
         };
-        handleNodeClick && handleNodeClick(nodeNote);
+        handleNodeClick?.(nodeNote);
       }}
       style={{ cursor: 'pointer' }}
     >

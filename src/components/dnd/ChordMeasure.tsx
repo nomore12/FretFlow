@@ -1,5 +1,4 @@
-import { Box, Select } from '@radix-ui/themes';
-import { Label } from '@radix-ui/themes/dist/cjs/components/dropdown-menu';
+import { Box, DropdownMenu, Select } from '@radix-ui/themes';
 import React from 'react';
 
 const openPositionChordKeys: string[] = [
@@ -48,7 +47,7 @@ const ChordMeasure: React.FC = () => {
     >
       <Box>
         <Box style={{ display: 'flex', gap: 10 }}>
-          <Label>Chord</Label>
+          <DropdownMenu.Label>Chord</DropdownMenu.Label>
           <Select.Root>
             <Select.Trigger placeholder="Select a chord">
               {/* <Select.Value placeholder="Select a chord" /> */}

@@ -144,7 +144,7 @@ const Main: React.FC = () => {
     setChordArr(newChordArr);
 
     const createPlayer = async () => {
-      const url = 'sounds/Kick.wav';
+      const url = '/sounds/Kick.wav';
       const newPlayer = new Tone.Player();
 
       try {

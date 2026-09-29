@@ -12,7 +12,7 @@
 
 ## 2. Tech Stack & Style
 
-- **Framework**: React (Create React App)
+- **Framework**: React (Vite)
 - **Language**: TypeScript (Strict mode)
 - **Styling**: Material-UI
 - **State Management**: Zustand (Redux 사용 금지)
