@@ -1,20 +1,3 @@
-// ChromaticNote is a global type
-
-export const reverseFretNumber = (line: number) => {
-  switch (line) {
-    case 1:
-      return 4;
-    case 2:
-      return 3;
-    case 3:
-      return 2;
-    case 4:
-      return 1;
-    default:
-      return 0;
-  }
-};
-
 export const generateChromaticNotesArray = (
   line: number,
   sequence: number[],
@@ -22,26 +5,21 @@ export const generateChromaticNotesArray = (
   practiceMode: PracticeMode,
   shouldReversePattern: boolean,
 ): ChromaticNote[] => {
-  const useReversePattern = shouldReversePattern;
-
-  return sequence.map((fretNumber, index) => {
-    const pattern =
-      useReversePattern && practiceMode === 'traverse_with_repeat'
-        ? [...selectedFingerPattern].reverse()
-        : selectedFingerPattern;
-    const displayFingerNumber =
-      pattern[index] !== undefined ? pattern[index] : index + 1;
+  const notes = sequence.map((fretNumber, index) => {
+    const fingerNumber = selectedFingerPattern[index] ?? index + 1;
 
     return {
-      flatNumber:
-        useReversePattern && practiceMode === 'traverse_with_repeat'
-          ? reverseFretNumber(fretNumber)
-          : fretNumber,
+      flatNumber: fretNumber,
       lineNumber: line,
-      chromaticNumber: displayFingerNumber,
-      chord: String(displayFingerNumber),
+      chromaticNumber: fingerNumber,
+      chord: String(fingerNumber),
     };
   });
+
+  // 프렛과 손가락의 연결을 유지하고 연주 순서만 반대로 바꾼다.
+  return shouldReversePattern && practiceMode === 'traverse_with_repeat'
+    ? notes.reverse()
+    : notes;
 };
 
 export type PracticeMode =
