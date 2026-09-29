@@ -1,3 +1,4 @@
+import CountdownOverlay from '../../components/practice/CountdownOverlay';
 import React, { useMemo, useState } from 'react';
 import { Alert, Box, Card, CardContent, Container } from '@mui/material';
 import RhythmStaff from './RhythmStaff';
@@ -65,12 +66,13 @@ const RhythmPage: React.FC = () => {
     (_, i) => marginTop + i * staffSpacing,
   );
 
-  const { isBusy, start, stop, activePosition, error } = useRhythmPlayback({
-    bars,
-    beatsPerBar,
-    bpm,
-    restAccentEnabled,
-  });
+  const { isBusy, countdown, start, stop, activePosition, error } =
+    useRhythmPlayback({
+      bars,
+      beatsPerBar,
+      bpm,
+      restAccentEnabled,
+    });
 
   const handleStageChange = (nextStageId: StageId) => {
     if (nextStageId === stageId) return;
@@ -93,7 +95,7 @@ const RhythmPage: React.FC = () => {
           bpm={bpm}
           onBpmChange={setBpm}
           isPlaying={isBusy}
-          onTogglePlay={() => (isBusy ? stop() : void start())}
+          onTogglePlay={() => (isBusy ? stop() : void start(3))}
           restAccentEnabled={restAccentEnabled}
           onRestAccentToggle={setRestAccentEnabled}
           stageId={stageId}
@@ -114,7 +116,8 @@ const RhythmPage: React.FC = () => {
             overflow: 'visible',
           }}
         >
-          <CardContent sx={{ p: 3 }}>
+          <CardContent sx={{ p: 3, position: 'relative' }}>
+            <CountdownOverlay countdown={countdown} />
             <svg
               viewBox={`0 0 ${width} ${height}`}
               xmlns="http://www.w3.org/2000/svg"

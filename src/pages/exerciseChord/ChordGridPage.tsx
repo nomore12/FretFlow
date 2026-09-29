@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Container,
   Typography,
   Button,
   Checkbox,
   FormControlLabel,
-  Grid,
   Stack,
-  useTheme,
-  useMediaQuery,
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
+import {
+  PracticePage,
+  PracticePanel,
+} from '../../components/practice/PracticeLayout';
+import { Divider } from '@mui/material';
+import { Shuffle } from '@mui/icons-material';
 import ChordDisplay from './ChordDisplay';
 import { chordData } from './chordData';
 import {
@@ -25,9 +27,7 @@ import ChordPracticeMetronome from '../../components/metronome/ChordPracticeMetr
 import { TOTAL_MEASURES } from './constants';
 
 const ChordGridPage: React.FC = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [hideFingers, setHideFingers] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const [displayChords, setDisplayChords] = useState(chordData);
@@ -143,260 +143,176 @@ const ChordGridPage: React.FC = () => {
     }
   };
 
+  const categories: [keyof ChordCategories, string][] = [
+    ['openPosition', '오픈포지션'],
+    ['barreChords', '하이코드(5,6번줄)'],
+    ['diminishedChords', 'Diminished'],
+    ['minor7b5Chords', 'Minor7b5'],
+    ['augmentedChords', 'Augmented'],
+    ['sus4Chords', 'Sus4'],
+    ['seventhChords', '7th 코드'],
+  ];
+
   return (
-    <Container maxWidth="md" sx={{ py: 3 }}>
-      <Box sx={{ mb: 3 }}>
-        {/* <Typography
-          variant="h4"
-          component="h1"
-          fontWeight="bold"
-          mb={2}
-          textAlign="center"
-        >
-          기타 코드 연습
-        </Typography> */}
-
-        {/* 컨트롤 영역 - 가로 레이아웃 */}
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            alignItems: 'flex-start',
-            justifyContent: 'center',
-            gap: 2,
-            flexWrap: 'wrap',
-          }}
-        >
-          {/* 통합 컨트롤 영역 */}
-          <Box
-            sx={{
-              p: 2,
-              border: '1px solid #e0e0e0',
-              borderRadius: 2,
-              bgcolor: '#fafafa',
-              maxWidth: 400,
-              flex: '1 1 400px',
-            }}
+    <PracticePage title="🎸 코드 트레이닝">
+      <PracticePanel controls>
+        <Stack spacing={3}>
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={3}
+            alignItems={{ md: 'end' }}
           >
-            <Typography variant="body2" fontWeight="bold" mb={1.5}>
-              난이도 설정
-            </Typography>
-
-            <ToggleButtonGroup
-              value={selectedMode}
-              exclusive
-              onChange={handleModeChange}
-              aria-label="difficulty mode"
-              size="small"
-              fullWidth
-              sx={{ mb: 2 }}
-            >
-              <ToggleButton value={ChordGenerationMode.BEGINNER}>
-                초급
-              </ToggleButton>
-              <ToggleButton value={ChordGenerationMode.INTERMEDIATE}>
-                중급
-              </ToggleButton>
-              <ToggleButton value={ChordGenerationMode.ADVANCED}>
-                고급
-              </ToggleButton>
-              <ToggleButton value="custom">커스텀</ToggleButton>
-            </ToggleButtonGroup>
-
-            <Typography variant="body2" fontWeight="bold" mb={1.5}>
-              코드 카테고리{' '}
-              {selectedMode !== 'custom' && '(커스텀 모드에서만 선택 가능)'}
-            </Typography>
-            <Grid
-              container
-              spacing={0.5}
-              sx={{
-                justifyContent: 'center',
-                mb: 2,
-              }}
-            >
-              <Grid item xs={6}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={selectedCategories.openPosition}
-                      onChange={() => handleCategoryChange('openPosition')}
-                      size="small"
-                      disabled={selectedMode !== 'custom'}
-                    />
-                  }
-                  label="오픈포지션"
-                  sx={{
-                    m: 0,
-                    '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
-                    '& .MuiCheckbox-root': { py: 0.5 },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={selectedCategories.barreChords}
-                      onChange={() => handleCategoryChange('barreChords')}
-                      size="small"
-                      disabled={selectedMode !== 'custom'}
-                    />
-                  }
-                  label="하이코드(5,6번줄)"
-                  sx={{
-                    m: 0,
-                    '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
-                    '& .MuiCheckbox-root': { py: 0.5 },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={selectedCategories.diminishedChords}
-                      onChange={() => handleCategoryChange('diminishedChords')}
-                      size="small"
-                      disabled={selectedMode !== 'custom'}
-                    />
-                  }
-                  label="Diminished"
-                  sx={{
-                    m: 0,
-                    '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
-                    '& .MuiCheckbox-root': { py: 0.5 },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={selectedCategories.minor7b5Chords}
-                      onChange={() => handleCategoryChange('minor7b5Chords')}
-                      size="small"
-                      disabled={selectedMode !== 'custom'}
-                    />
-                  }
-                  label="Minor7b5"
-                  sx={{
-                    m: 0,
-                    '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
-                    '& .MuiCheckbox-root': { py: 0.5 },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={selectedCategories.augmentedChords}
-                      onChange={() => handleCategoryChange('augmentedChords')}
-                      size="small"
-                      disabled={selectedMode !== 'custom'}
-                    />
-                  }
-                  label="Augmented"
-                  sx={{
-                    m: 0,
-                    '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
-                    '& .MuiCheckbox-root': { py: 0.5 },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={selectedCategories.sus4Chords}
-                      onChange={() => handleCategoryChange('sus4Chords')}
-                      size="small"
-                      disabled={selectedMode !== 'custom'}
-                    />
-                  }
-                  label="Sus4"
-                  sx={{
-                    m: 0,
-                    '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
-                    '& .MuiCheckbox-root': { py: 0.5 },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={selectedCategories.seventhChords}
-                      onChange={() => handleCategoryChange('seventhChords')}
-                      size="small"
-                      disabled={selectedMode !== 'custom'}
-                    />
-                  }
-                  label="7th 코드"
-                  sx={{
-                    m: 0,
-                    '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
-                    '& .MuiCheckbox-root': { py: 0.5 },
-                  }}
-                />
-              </Grid>
-            </Grid>
-
-            {/* 버튼 영역 */}
-            <Stack direction="row" spacing={1} width="100%">
+            <Box sx={{ flex: 1 }}>
+              <Typography component="h2" fontWeight={600} mb={1.5}>
+                난이도 설정
+              </Typography>
+              <ToggleButtonGroup
+                value={selectedMode}
+                exclusive
+                onChange={handleModeChange}
+                aria-label="난이도 설정"
+                fullWidth
+                size="small"
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    color: 'white',
+                    borderColor: 'rgba(255,255,255,.35)',
+                    py: 1,
+                    '&.Mui-selected': {
+                      color: 'white',
+                      bgcolor: 'rgba(255,255,255,.25)',
+                      '&:hover': { bgcolor: 'rgba(255,255,255,.3)' },
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value={ChordGenerationMode.BEGINNER}>
+                  초급
+                </ToggleButton>
+                <ToggleButton value={ChordGenerationMode.INTERMEDIATE}>
+                  중급
+                </ToggleButton>
+                <ToggleButton value={ChordGenerationMode.ADVANCED}>
+                  고급
+                </ToggleButton>
+                <ToggleButton value="custom">커스텀</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
               <Button
                 variant="contained"
-                color="success"
+                startIcon={<Shuffle />}
                 onClick={generateNewChords}
                 disabled={isGenerating}
-                sx={{ fontSize: '0.9rem' }}
-                fullWidth
+                sx={{
+                  bgcolor: 'rgba(255,255,255,.2)',
+                  minHeight: 42,
+                  '&:hover': { bgcolor: 'rgba(255,255,255,.3)' },
+                }}
               >
                 {isGenerating ? '생성 중...' : '코드 생성'}
               </Button>
               <Button
-                variant="contained"
-                color="primary"
+                variant="outlined"
                 onClick={toggleHideFingers}
-                sx={{ fontSize: '0.9rem' }}
-                fullWidth
+                aria-pressed={hideFingers}
+                sx={{
+                  color: 'white',
+                  borderColor: 'rgba(255,255,255,.5)',
+                  minHeight: 42,
+                }}
               >
                 {hideFingers ? '운지법 보이기' : '운지법 숨기기'}
               </Button>
             </Stack>
+          </Stack>
+          <Box>
+            <Typography variant="body2" fontWeight={600} mb={1}>
+              코드 카테고리
+              {selectedMode !== 'custom' && ' · 커스텀 모드에서 선택'}
+            </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                columnGap: 2,
+                rowGap: 0.5,
+              }}
+            >
+              {categories.map(([key, label]) => (
+                <FormControlLabel
+                  key={key}
+                  control={
+                    <Checkbox
+                      checked={selectedCategories[key]}
+                      onChange={() => handleCategoryChange(key)}
+                      size="small"
+                      disabled={selectedMode !== 'custom'}
+                    />
+                  }
+                  label={label}
+                  sx={{
+                    m: 0,
+                    '& .MuiFormControlLabel-label': { fontSize: '.875rem' },
+                  }}
+                />
+              ))}
+            </Box>
           </Box>
-
-          {/* 메트로놈 */}
+          <Divider sx={{ borderColor: 'rgba(255,255,255,.2)' }} />
           <ChordPracticeMetronome
+            onCountdownChange={setCountdown}
             onMeasureComplete={handleMeasureComplete}
             onPlayStateChange={handlePlayStateChange}
             currentMeasure={currentMeasure}
             totalMeasures={TOTAL_MEASURES}
           />
-        </Box>
-      </Box>
-
-      <Grid container spacing={2} justifyContent="center">
-        {displayChords.map((chord, index) => (
-          <Grid item xs={6} sm={6} md={3} lg={3} key={index}>
+        </Stack>
+      </PracticePanel>
+      <PracticePanel countdown={countdown}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          mb={2}
+        >
+          <Typography component="h2" fontWeight={600}>
+            코드 진행
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {TOTAL_MEASURES}마디
+          </Typography>
+        </Stack>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: 'repeat(2, minmax(0, 1fr))',
+              md: 'repeat(4, minmax(0, 1fr))',
+            },
+            gap: { xs: 1.5, sm: 2 },
+          }}
+        >
+          {displayChords.map((chord, index) => (
             <Box
-              onClick={() => handleChordClick(index)}
-              tabIndex={0}
+              key={index}
               role="button"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+              tabIndex={0}
+              aria-label={`${index + 1}마디 ${chord.chord}`}
+              aria-pressed={focusedIndex === index}
+              onClick={() => handleChordClick(index)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
                   handleChordClick(index);
                 }
               }}
               sx={{
                 cursor: 'pointer',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                '&:focus': {
-                  outline: '2px solid #1976d2',
-                  borderRadius: 1,
+                borderRadius: 2,
+                '&:focus-visible': {
+                  outline: '3px solid #667eea',
+                  outlineOffset: 2,
                 },
               }}
             >
@@ -406,10 +322,10 @@ const ChordGridPage: React.FC = () => {
                 hide={hideFingers}
               />
             </Box>
-          </Grid>
-        ))}
-      </Grid>
-    </Container>
+          ))}
+        </Box>
+      </PracticePanel>
+    </PracticePage>
   );
 };
 

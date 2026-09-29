@@ -1,17 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Typography,
-  Button,
-  Stack,
-  Slider,
-  Radio,
-  RadioGroup,
-  FormControl,
-  FormLabel,
-  FormControlLabel,
-} from '@mui/material';
+import MetronomeControls from './MetronomeControls';
 import useTonePlayer from '../../hooks/useTonePlayer';
 
 export interface ChordPracticeMetronomeProps {
@@ -25,6 +13,7 @@ export interface ChordPracticeMetronomeProps {
   totalMeasures?: number;
   /** 부모에서 재생을 강제로 중단시키기 위한 신호 (값이 변할 때마다 정지) */
   stopSignal?: number;
+  onCountdownChange?: (countdown: number | null) => void;
 }
 
 const ChordPracticeMetronome: React.FC<ChordPracticeMetronomeProps> = ({
@@ -33,6 +22,7 @@ const ChordPracticeMetronome: React.FC<ChordPracticeMetronomeProps> = ({
   currentMeasure = 0,
   totalMeasures = 16,
   stopSignal,
+  onCountdownChange,
 }) => {
   const [bpm, setBpm] = useState<number>(60);
   const [volume, setVolume] = useState(10);
@@ -69,163 +59,34 @@ const ChordPracticeMetronome: React.FC<ChordPracticeMetronomeProps> = ({
     }
   }, [stopSignal, handleStop]);
 
-  const handleStartMetronome = () => {
-    void handlePlay(5);
-  };
+  useEffect(() => {
+    onCountdownChange?.(countdown);
+  }, [countdown, onCountdownChange]);
 
-  // BPM 변경 핸들러
-  const onChangeBpm = (_event: Event, value: number | number[]) => {
-    const bpmValue = Array.isArray(value) ? value[0] : value;
-    if (bpmValue < 40 || bpmValue > 300) {
-      return;
-    }
-    setBpm(bpmValue);
+  const handleStartMetronome = () => {
+    void handlePlay(3);
   };
 
   return (
-    <Box
-      sx={{
-        p: 1.5,
-        border: '1px solid #ccc',
-        borderRadius: 2,
-        bgcolor: '#f9f9f9',
-        mb: 2,
-        width: 360,
-      }}
-    >
-      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-        {countdown === null ? (
-          <Typography variant="body1" component="h2" fontWeight="bold" mb={1}>
-            메트로놈
-            {isPlaying && (
-              <Typography
-                component="span"
-                variant="caption"
-                color="primary"
-                ml={1.5}
-              >
-                {currentMeasure + 1}/{totalMeasures} 마디
-              </Typography>
-            )}
-          </Typography>
-        ) : (
-          <Box textAlign="center" mb={1}>
-            <Typography variant="h5" component="div" fontWeight="bold">
-              {countdown}
-            </Typography>
-          </Box>
-        )}
-      </Box>
-
-      {error && <Alert severity="error">{error}</Alert>}
-
-      {/* 컨트롤 버튼 */}
-      <Box mb={1.5} textAlign="center">
-        <Stack direction="row" spacing={1.5} justifyContent="center">
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleStartMetronome}
-            disabled={isBusy}
-            size="small"
-            sx={{ fontSize: '0.8rem', py: 0.5 }}
-          >
-            시작
-          </Button>
-          <Button
-            variant="contained"
-            color="secondary"
-            onClick={handleStop}
-            disabled={!isBusy}
-            size="small"
-            sx={{ fontSize: '0.8rem', py: 0.5 }}
-          >
-            정지
-          </Button>
-        </Stack>
-      </Box>
-
-      {/* 메트로놈 설정 */}
-      <Stack spacing={1}>
-        {/* BPM 설정 */}
-        <Box>
-          <Typography variant="caption" sx={{ mb: 0.5, display: 'block' }}>
-            BPM: {bpm}
-          </Typography>
-          <Slider
-            value={bpm}
-            onChange={onChangeBpm}
-            min={40}
-            max={300}
-            valueLabelDisplay="auto"
-            size="small"
-          />
-        </Box>
-
-        {/* 볼륨 설정 */}
-        <Box>
-          <Typography variant="caption" sx={{ mb: 0.5, display: 'block' }}>
-            볼륨: {volume}
-          </Typography>
-          <Slider
-            value={volume}
-            onChange={(_event, value) =>
-              setVolume(Array.isArray(value) ? value[0] : value)
-            }
-            min={0}
-            max={30}
-            valueLabelDisplay="auto"
-            size="small"
-          />
-        </Box>
-
-        {/* 비트 설정 */}
-        <Box sx={{ width: '100%' }}>
-          <FormControl sx={{ width: '100%' }}>
-            <FormLabel
-              component="legend"
-              sx={{ fontSize: '0.75rem', mb: 0.25 }}
-            >
-              비트
-            </FormLabel>
-            <RadioGroup
-              row
-              value={beat}
-              onChange={(e) => setBeat(e.target.value as '4' | '8' | '16')}
-              sx={{ width: '100%', justifyContent: 'center' }}
-            >
-              <FormControlLabel
-                value="4"
-                control={<Radio size="small" />}
-                label="4 beat"
-                sx={{
-                  '& .MuiFormControlLabel-label': { fontSize: '0.7rem' },
-                  flex: 1,
-                }}
-              />
-              <FormControlLabel
-                value="8"
-                control={<Radio size="small" />}
-                label="8 beat"
-                sx={{
-                  '& .MuiFormControlLabel-label': { fontSize: '0.7rem' },
-                  flex: 1,
-                }}
-              />
-              <FormControlLabel
-                value="16"
-                control={<Radio size="small" />}
-                label="16 beat"
-                sx={{
-                  '& .MuiFormControlLabel-label': { fontSize: '0.7rem' },
-                  flex: 1,
-                }}
-              />
-            </RadioGroup>
-          </FormControl>
-        </Box>
-      </Stack>
-    </Box>
+    <MetronomeControls
+      bpm={bpm}
+      maxBpm={300}
+      onBpmChange={setBpm}
+      beat={Number(beat)}
+      onBeatChange={(value) => setBeat(String(value) as '4' | '8' | '16')}
+      volume={volume}
+      onVolumeChange={setVolume}
+      isBusy={isBusy}
+      onToggle={isBusy ? handleStop : handleStartMetronome}
+      status={
+        countdown !== null
+          ? `${countdown}초 후 시작`
+          : isPlaying
+            ? `${currentMeasure + 1} / ${totalMeasures} 마디`
+            : '3초 카운트다운 후 시작'
+      }
+      error={error}
+    />
   );
 };
 

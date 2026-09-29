@@ -188,7 +188,8 @@ const Flatboard: React.FC<PropsType> = ({
     <svg
       width={totalWidth}
       height={totalHeight}
-      style={{ backgroundColor: '#f4f4f4', border: '1px solid #ccc' }}
+      viewBox={`0 0 ${totalWidth} ${totalHeight}`}
+      style={{ display: 'block', width: '100%', height: 'auto' }}
     >
       {/* Open chord */}
       {['E', 'A', 'G', 'D', 'B', 'E'].map((chord, index) => (

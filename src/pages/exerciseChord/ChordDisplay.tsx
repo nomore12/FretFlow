@@ -21,54 +21,31 @@ interface StyledWrapperProps {
 }
 
 const StyledWrapper = styled.div<StyledWrapperProps>`
-  width: 160px;
-  transition: all 0.3s ease;
-  opacity: ${(props) => (props.$focused ? 1 : 0.5)};
-  cursor: pointer;
-  border: 1px solid black;
+  width: 100%;
+  box-sizing: border-box;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+  background: ${(props) => (props.$focused ? '#f0edff' : '#ffffff')};
+  border: 2px solid ${(props) => (props.$focused ? '#7664bb' : 'transparent')};
+  border-radius: 12px;
   display: flex;
-  justify-content: center;
-
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0 4px;
   &:hover {
-    opacity: ${(props) => (props.$focused ? 1 : 0.7)};
+    border-color: #9d8fd0;
   }
 `;
 
 const ChordNameWrapper = styled.div`
-  border: 1px solid black;
-  width: 54px;
-  min-width: 54px;
-  max-width: 54px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: white;
-  overflow: hidden;
-  box-sizing: border-box;
-
-  h1 {
-    font-size: 1.2rem;
+  width: 100%;
+  h2 {
+    font-size: 1.15rem;
     font-weight: 700;
-    margin: 0;
-    padding: 2px;
+    margin: 0 0 6px;
     text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    width: 100%;
-    box-sizing: border-box;
-
-    /* 텍스트가 길면 자동으로 폰트 크기 축소 */
-    &[data-long='true'] {
-      font-size: 0.85rem;
-    }
-
-    &[data-very-long='true'] {
-      font-size: 0.7rem;
-    }
-
-    &[data-extra-long='true'] {
-      font-size: 0.6rem;
-    }
+    color: #413767;
   }
 `;
 
@@ -199,13 +176,13 @@ const ChordDisplay: React.FC<ChordDisplayProps> = ({
   return (
     <StyledWrapper $focused={focused}>
       <ChordNameWrapper>
-        <h1
+        <h2
           data-long={textLengthClass === 'long' ? 'true' : 'false'}
           data-very-long={textLengthClass === 'very-long' ? 'true' : 'false'}
           data-extra-long={textLengthClass === 'extra-long' ? 'true' : 'false'}
         >
           {chord.chord}
-        </h1>
+        </h2>
       </ChordNameWrapper>
       <ChordGridWrapper>
         {hide ? (
