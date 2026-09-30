@@ -4,6 +4,7 @@ import {
   RecorderDeps,
   TakeRecorder,
   pickMimeType,
+  trackInputLatencyMs,
 } from './TakeRecorder';
 
 const browserDeps: RecorderDeps = {
@@ -20,8 +21,8 @@ const browserDeps: RecorderDeps = {
   },
   now: () => performance.now(),
   // 출력 지연은 마디선 시각(heardAtMs)에 이미 들어 있다. 마이크 입력 지연은
-  // 브라우저가 알려주지 않아 0으로 둔다.
-  latencyMs: () => 0,
+  // 트랙 설정에 latency가 있을 때만 더한다.
+  latencyMs: trackInputLatencyMs,
 };
 
 /** 녹음기 수명주기. 화면을 떠나면 마이크를 끈다. */

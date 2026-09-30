@@ -36,7 +36,21 @@ export interface RecorderDeps {
   createRecorder: (stream: MediaStream) => RecorderLike;
   now: () => number; // barStarted의 시각과 같은 기준 (performance.now)
   // 마이크 입력 지연. 들리는 박자에 맞춰 부른 소리가 파일에는 이만큼 늦게 담긴다.
-  latencyMs: () => number;
+  latencyMs: (stream: MediaStream) => number;
+}
+
+/**
+ * 마이크 트랙이 알려주는 입력 지연(ms). 브라우저가 latency 설정을 주지 않으면 0.
+ * MediaTrackSettings.latency는 초 단위다.
+ */
+export function trackInputLatencyMs(stream: MediaStream): number {
+  const settings = stream.getAudioTracks()[0]?.getSettings() as
+    | (MediaTrackSettings & { latency?: number })
+    | undefined;
+  const latency = settings?.latency;
+  return typeof latency === 'number' && Number.isFinite(latency) && latency > 0
+    ? latency * 1000
+    : 0;
 }
 
 // 녹음을 지원하지 않는 브라우저면 여기서 걸러 안내한다.
@@ -139,9 +153,15 @@ export class TakeRecorder {
           error: '녹음 중 오류가 났습니다. 다시 시도해 주세요.',
         });
       });
+      // 녹음이 실제로 시작된 시각을 기준으로 삼는다. start()를 부른 시각과는
+      // 수십 ms 차이가 날 수 있고, 그 사이에 온 마디선은 쓰지 않는다.
+      recorder.addEventListener('start', (event: Event) => {
+        if (session !== this.session) return;
+        this.recorderStartAt =
+          event.timeStamp > 0 ? event.timeStamp : this.deps.now();
+        this.publish({ status: 'armed' });
+      });
       recorder.start();
-      this.recorderStartAt = this.deps.now();
-      this.publish({ status: 'armed' });
     } catch (error) {
       if (session !== this.session) return;
       this.cleanup();
@@ -156,7 +176,9 @@ export class TakeRecorder {
       this.barStartAt = atMs;
       this.offsetMs = Math.max(
         0,
-        atMs - this.recorderStartAt + this.deps.latencyMs(),
+        atMs -
+          this.recorderStartAt +
+          (this.stream ? this.deps.latencyMs(this.stream) : 0),
       );
       this.publish({ status: 'recording', startMeasure: measure });
     } else if (status === 'finishing') {
