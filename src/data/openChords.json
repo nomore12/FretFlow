@@ -216,6 +216,26 @@
     "mute": [],
     "flat": 1
   },
+  "Em7b5": {
+    "chord": "Em7b5",
+    "fingers": [
+      [5, 1],
+      [4, 2],
+      [2, 3]
+    ],
+    "mute": [],
+    "flat": 1
+  },
+  "Edim7": {
+    "chord": "Edim7",
+    "fingers": [
+      [5, 1],
+      [4, 2],
+      [2, 2]
+    ],
+    "mute": [],
+    "flat": 1
+  },
   "F": {
     "chord": "F",
     "fingers": [

@@ -52,6 +52,8 @@ describe('운지 데이터 → 실제 음', () => {
     maj7: [0, 4, 7, 11],
     m7: [0, 3, 7, 10],
     dim: [0, 3, 6],
+    m7b5: [0, 3, 6, 10],
+    dim7: [0, 3, 6, 9],
   };
 
   it.each(Object.keys(openChords).filter((name) => name !== 'X'))(

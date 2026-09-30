@@ -80,6 +80,7 @@ type ChordSuffix =
   | 'minor7'
   | 'minmaj7'
   | 'm7b5'
+  | 'dim'
   | 'dim7'
   | 'sus4'
   | '7sus4';
@@ -308,7 +309,11 @@ export function findChord(chordName: string): ChordPosition[] {
   else if (suffix === 'dim') chordType = 'dim';
   else if (suffix) return []; // 지원하지 않는 코드 타입
 
-  return generateChordPositions(root, chordType);
+  // 모양이 정의되지 않은 줄 기준(예: 5번 줄 sus2)은 운지가 비어 개방현 6줄이
+  // 되므로 후보에서 뺀다.
+  return generateChordPositions(root, chordType).filter(
+    (position) => position.fingers.length > 0,
+  );
 }
 
 // 모든 코드 생성 (캐싱용)
@@ -392,6 +397,8 @@ function suffixToTemplateKey(suffix: string): ChordSuffix | null {
     'm(maj7)': 'minmaj7',
     m7b5: 'm7b5',
     ø7: 'm7b5',
+    dim: 'dim',
+    '°': 'dim',
     dim7: 'dim7',
     '°7': 'dim7',
     sus4: 'sus4',
@@ -451,12 +458,12 @@ export function generateChordFromTemplate(
 
     // 템플릿의 프렛을 실제 위치로 변환
     const transposedFingers: [number, number][] = template.fingers.map(
-      ([string, fret]) => {
-        const actualFret = fret - template.flat + baseFret;
-        // 음수 프렛은 0프렛(개방현)으로 처리
-        return [string, actualFret < 0 ? 0 : actualFret];
-      },
+      ([string, fret]) => [string, fret - template.flat + baseFret],
     );
+
+    // 근음이 개방현 근처라 음수 프렛이 필요하면 이 줄 기준으로는 잡을 수 없다.
+    // 0프렛으로 바꾸면 다른 음이 나므로 후보에서 뺀다.
+    if (transposedFingers.some(([, fret]) => fret < 0)) continue;
 
     // 0 또는 음수 프렛 처리
     const validFingers = transposedFingers.filter(([, fret]) => fret >= 0);
