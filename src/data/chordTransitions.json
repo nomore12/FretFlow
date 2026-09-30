@@ -1,0 +1,116 @@
+{
+  "description": "현재 코드(도수) 다음에 자주 오는 코드. weight는 상대 빈도, tag는 느낌. start는 N.C. 또는 첫 마디 다음.",
+  "tags": {
+    "stable": "안정",
+    "tension": "긴장",
+    "wistful": "애틋함",
+    "open": "펼쳐짐"
+  },
+  "major": {
+    "start": [
+      { "degree": 1, "quality": "major", "weight": 50, "tag": "stable" },
+      { "degree": 6, "quality": "minor", "weight": 20, "tag": "wistful" },
+      { "degree": 4, "quality": "major", "weight": 20, "tag": "open" },
+      { "degree": 2, "quality": "minor", "weight": 10, "tag": "open" }
+    ],
+    "1": [
+      { "degree": 4, "quality": "major", "weight": 30, "tag": "open" },
+      { "degree": 5, "quality": "major", "weight": 25, "tag": "tension" },
+      { "degree": 6, "quality": "minor", "weight": 22, "tag": "wistful" },
+      { "degree": 2, "quality": "minor", "weight": 10, "tag": "open" },
+      { "degree": 3, "quality": "minor", "weight": 7, "tag": "wistful" },
+      { "degree": 7, "quality": "major", "accidental": -1, "weight": 6, "tag": "open" }
+    ],
+    "2": [
+      { "degree": 5, "quality": "major", "weight": 45, "tag": "tension" },
+      { "degree": 4, "quality": "major", "weight": 15, "tag": "open" },
+      { "degree": 1, "quality": "major", "weight": 12, "tag": "stable" },
+      { "degree": 6, "quality": "minor", "weight": 10, "tag": "wistful" },
+      { "degree": 3, "quality": "minor", "weight": 8, "tag": "wistful" }
+    ],
+    "3": [
+      { "degree": 6, "quality": "minor", "weight": 40, "tag": "wistful" },
+      { "degree": 4, "quality": "major", "weight": 30, "tag": "open" },
+      { "degree": 2, "quality": "minor", "weight": 12, "tag": "open" },
+      { "degree": 1, "quality": "major", "weight": 10, "tag": "stable" }
+    ],
+    "4": [
+      { "degree": 5, "quality": "major", "weight": 30, "tag": "tension" },
+      { "degree": 1, "quality": "major", "weight": 30, "tag": "stable" },
+      { "degree": 6, "quality": "minor", "weight": 12, "tag": "wistful" },
+      { "degree": 2, "quality": "minor", "weight": 10, "tag": "open" },
+      { "degree": 4, "quality": "minor", "weight": 8, "tag": "wistful" },
+      { "degree": 3, "quality": "minor", "weight": 5, "tag": "wistful" }
+    ],
+    "5": [
+      { "degree": 1, "quality": "major", "weight": 45, "tag": "stable" },
+      { "degree": 6, "quality": "minor", "weight": 25, "tag": "wistful" },
+      { "degree": 4, "quality": "major", "weight": 18, "tag": "open" },
+      { "degree": 3, "quality": "minor", "weight": 5, "tag": "wistful" }
+    ],
+    "6": [
+      { "degree": 4, "quality": "major", "weight": 35, "tag": "open" },
+      { "degree": 5, "quality": "major", "weight": 20, "tag": "tension" },
+      { "degree": 2, "quality": "minor", "weight": 15, "tag": "open" },
+      { "degree": 3, "quality": "minor", "weight": 12, "tag": "wistful" },
+      { "degree": 1, "quality": "major", "weight": 10, "tag": "stable" }
+    ],
+    "7": [
+      { "degree": 1, "quality": "major", "weight": 50, "tag": "stable" },
+      { "degree": 3, "quality": "minor", "weight": 25, "tag": "wistful" },
+      { "degree": 6, "quality": "minor", "weight": 15, "tag": "wistful" }
+    ],
+    "b7": [
+      { "degree": 1, "quality": "major", "weight": 40, "tag": "stable" },
+      { "degree": 4, "quality": "major", "weight": 35, "tag": "open" },
+      { "degree": 5, "quality": "major", "weight": 10, "tag": "tension" }
+    ]
+  },
+  "minor": {
+    "start": [
+      { "degree": 1, "quality": "minor", "weight": 55, "tag": "stable" },
+      { "degree": 6, "quality": "major", "weight": 25, "tag": "wistful" },
+      { "degree": 4, "quality": "minor", "weight": 15, "tag": "wistful" }
+    ],
+    "1": [
+      { "degree": 6, "quality": "major", "weight": 28, "tag": "wistful" },
+      { "degree": 4, "quality": "minor", "weight": 22, "tag": "wistful" },
+      { "degree": 7, "quality": "major", "weight": 20, "tag": "open" },
+      { "degree": 5, "quality": "major", "weight": 15, "tag": "tension" },
+      { "degree": 3, "quality": "major", "weight": 10, "tag": "open" }
+    ],
+    "2": [
+      { "degree": 5, "quality": "major", "weight": 60, "tag": "tension" },
+      { "degree": 1, "quality": "minor", "weight": 20, "tag": "stable" }
+    ],
+    "3": [
+      { "degree": 6, "quality": "major", "weight": 30, "tag": "open" },
+      { "degree": 7, "quality": "major", "weight": 25, "tag": "open" },
+      { "degree": 4, "quality": "minor", "weight": 20, "tag": "wistful" },
+      { "degree": 1, "quality": "minor", "weight": 15, "tag": "stable" }
+    ],
+    "4": [
+      { "degree": 5, "quality": "major", "weight": 30, "tag": "tension" },
+      { "degree": 1, "quality": "minor", "weight": 30, "tag": "stable" },
+      { "degree": 7, "quality": "major", "weight": 20, "tag": "open" },
+      { "degree": 6, "quality": "major", "weight": 12, "tag": "wistful" }
+    ],
+    "5": [
+      { "degree": 1, "quality": "minor", "weight": 55, "tag": "stable" },
+      { "degree": 6, "quality": "major", "weight": 25, "tag": "wistful" },
+      { "degree": 4, "quality": "minor", "weight": 10, "tag": "wistful" }
+    ],
+    "6": [
+      { "degree": 7, "quality": "major", "weight": 30, "tag": "open" },
+      { "degree": 3, "quality": "major", "weight": 22, "tag": "open" },
+      { "degree": 5, "quality": "major", "weight": 20, "tag": "tension" },
+      { "degree": 4, "quality": "minor", "weight": 15, "tag": "wistful" },
+      { "degree": 1, "quality": "minor", "weight": 10, "tag": "stable" }
+    ],
+    "7": [
+      { "degree": 3, "quality": "major", "weight": 35, "tag": "open" },
+      { "degree": 1, "quality": "minor", "weight": 30, "tag": "stable" },
+      { "degree": 6, "quality": "major", "weight": 20, "tag": "wistful" }
+    ]
+  }
+}

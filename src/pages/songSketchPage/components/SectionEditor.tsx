@@ -77,6 +77,8 @@ interface SectionEditorProps {
   shapeKey: SongKey;
   onUpdate: SongUpdate;
   currentBarIndex?: number | null; // 재생 중인 마디
+  selectedBarIndex?: number | null; // 다음 코드 추천 기준 마디
+  onSelectBar?: (sectionId: string, barIndex: number) => void;
 }
 
 function SectionEditor({
@@ -84,6 +86,8 @@ function SectionEditor({
   shapeKey,
   onUpdate,
   currentBarIndex = null,
+  selectedBarIndex = null,
+  onSelectBar,
 }: SectionEditorProps) {
   const [presetId, setPresetId] = useState('');
   const [pickingBar, setPickingBar] = useState<number | null>(null);
@@ -221,6 +225,8 @@ function SectionEditor({
           return (
             <Stack
               key={barIndex}
+              onFocusCapture={() => onSelectBar?.(id, barIndex)}
+              onClickCapture={() => onSelectBar?.(id, barIndex)}
               direction={{ xs: 'column', sm: 'row' }}
               spacing={1}
               alignItems={{ xs: 'stretch', sm: 'center' }}
@@ -232,7 +238,11 @@ function SectionEditor({
                     ? '#f0edff'
                     : 'rgba(255,255,255,.7)',
                 outline:
-                  barIndex === currentBarIndex ? '2px solid #7664bb' : 'none',
+                  barIndex === currentBarIndex
+                    ? '2px solid #7664bb'
+                    : barIndex === selectedBarIndex
+                      ? '2px dashed #9d8fd0'
+                      : 'none',
                 transition: 'background-color .15s',
               }}
             >

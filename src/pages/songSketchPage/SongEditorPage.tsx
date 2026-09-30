@@ -26,11 +26,17 @@ import useSongStore from '../../store/useSongStore';
 import { shapeKey } from '../../utils/pitch';
 import { SECTION_KINDS, SECTION_KIND_LABELS, SectionKind, Song } from './types';
 import { buildChordSheet } from './logic/chordSheet';
-import { addSection, newId } from './logic/songEdits';
+import {
+  addSection,
+  applyKeyAndCapo,
+  newId,
+  setNextBarChord,
+} from './logic/songEdits';
 import { serializeSong } from './logic/songIO';
 import ChordSheetView, { SheetHighlight } from './components/ChordSheetView';
 import PlaybackPanel, { RecordingControls } from './components/PlaybackPanel';
 import TakesPanel from './components/TakesPanel';
+import AssistPanel, { BarSelection } from './components/AssistPanel';
 import { Take } from './recording/takes';
 import useTakePlayer from './recording/useTakePlayer';
 import useTakeRecorder from './recording/useTakeRecorder';
@@ -89,6 +95,16 @@ function SongEditor({ song }: { song: Song }) {
   const [loopSectionId, setLoopSectionId] = useState<string | null>(null);
   const [drumVolumeDb, setDrumVolumeDb] = useState(-12);
   const [chordVolumeDb, setChordVolumeDb] = useState(-6);
+  const [selection, setSelection] = useState<BarSelection | null>(null);
+  const selectBar = useCallback(
+    (sectionId: string, barIndex: number) =>
+      setSelection((previous) =>
+        previous?.sectionId === sectionId && previous.barIndex === barIndex
+          ? previous
+          : { sectionId, barIndex },
+      ),
+    [],
+  );
 
   const update = useCallback(
     (recipe: (song: Song) => Song) => updateSong(id, recipe),
@@ -331,66 +347,125 @@ function SongEditor({ song }: { song: Song }) {
             <ChordSheetView sheet={sheet} current={highlight} />
           </Paper>
         ) : (
-          <>
-            <PracticePanel controls>
-              <SongSettings
-                song={song}
-                onChange={(patch) => update((s) => ({ ...s, ...patch }))}
-              />
-            </PracticePanel>
-
-            <PracticePanel>
-              <Typography variant="h6" gutterBottom>
-                재생 순서
-              </Typography>
-              <OrderEditor song={song} onUpdate={update} />
-            </PracticePanel>
-
-            {sectionsInDisplayOrder(song).map((section) => (
-              <PracticePanel key={section.id}>
-                <SectionEditor
-                  section={section}
-                  shapeKey={shape}
-                  onUpdate={update}
-                  currentBarIndex={
-                    current?.sectionId === section.id ? current.barIndex : null
-                  }
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: {
+                xs: 'minmax(0, 1fr)',
+                lg: 'minmax(0, 1fr) 360px',
+              },
+              gap: 3,
+              alignItems: 'start',
+            }}
+          >
+            <Stack spacing={3} sx={{ minWidth: 0 }}>
+              <PracticePanel controls>
+                <SongSettings
+                  song={song}
+                  onChange={(patch) => update((s) => ({ ...s, ...patch }))}
                 />
-                {!song.order.includes(section.id) && (
-                  <Typography variant="caption" color="warning.main">
-                    이 섹션은 재생 순서에 들어 있지 않습니다.
-                  </Typography>
-                )}
               </PracticePanel>
-            ))}
 
-            <Stack direction="row" spacing={1} alignItems="center">
-              <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel id="new-section-kind">새 섹션</InputLabel>
-                <Select
-                  labelId="new-section-kind"
-                  label="새 섹션"
-                  value={newKind}
-                  onChange={(event) =>
-                    setNewKind(event.target.value as SectionKind)
-                  }
+              <PracticePanel>
+                <Typography variant="h6" gutterBottom>
+                  재생 순서
+                </Typography>
+                <OrderEditor song={song} onUpdate={update} />
+              </PracticePanel>
+
+              {sectionsInDisplayOrder(song).map((section) => (
+                <PracticePanel key={section.id}>
+                  <SectionEditor
+                    section={section}
+                    shapeKey={shape}
+                    onUpdate={update}
+                    currentBarIndex={
+                      current?.sectionId === section.id
+                        ? current.barIndex
+                        : null
+                    }
+                    selectedBarIndex={
+                      selection?.sectionId === section.id
+                        ? selection.barIndex
+                        : null
+                    }
+                    onSelectBar={selectBar}
+                  />
+                  {!song.order.includes(section.id) && (
+                    <Typography variant="caption" color="warning.main">
+                      이 섹션은 재생 순서에 들어 있지 않습니다.
+                    </Typography>
+                  )}
+                </PracticePanel>
+              ))}
+
+              <Stack direction="row" spacing={1} alignItems="center">
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                  <InputLabel id="new-section-kind">새 섹션</InputLabel>
+                  <Select
+                    labelId="new-section-kind"
+                    label="새 섹션"
+                    value={newKind}
+                    onChange={(event) =>
+                      setNewKind(event.target.value as SectionKind)
+                    }
+                  >
+                    {SECTION_KINDS.map((kind) => (
+                      <MenuItem key={kind} value={kind}>
+                        {SECTION_KIND_LABELS[kind]}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Button
+                  variant="contained"
+                  startIcon={<Add />}
+                  onClick={() => update((s) => addSection(s, newKind))}
                 >
-                  {SECTION_KINDS.map((kind) => (
-                    <MenuItem key={kind} value={kind}>
-                      {SECTION_KIND_LABELS[kind]}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Button
-                variant="contained"
-                startIcon={<Add />}
-                onClick={() => update((s) => addSection(s, newKind))}
-              >
-                섹션 추가
-              </Button>
+                  섹션 추가
+                </Button>
+              </Stack>
             </Stack>
-          </>
+
+            {/* 보조 패널: 넓은 화면에서는 오른쪽에 붙어 따라온다. */}
+            <Box
+              component="aside"
+              className="no-print"
+              sx={{
+                minWidth: 0,
+                position: { lg: 'sticky' },
+                top: { lg: 16 },
+                maxHeight: { lg: 'calc(100vh - 32px)' },
+                overflowY: { lg: 'auto' },
+              }}
+            >
+              <PracticePanel>
+                <AssistPanel
+                  song={song}
+                  shapeKey={shape}
+                  selection={selection}
+                  onApplyCapo={(tonic, capo) =>
+                    update((s) => applyKeyAndCapo(s, tonic, capo))
+                  }
+                  onApplyNextChord={(target, chord) => {
+                    update((s) =>
+                      setNextBarChord(
+                        s,
+                        target.sectionId,
+                        target.barIndex,
+                        chord,
+                      ),
+                    );
+                    // 이어서 다음 코드를 고를 수 있게 선택을 한 칸 옮긴다.
+                    setSelection({
+                      sectionId: target.sectionId,
+                      barIndex: target.barIndex + 1,
+                    });
+                  }}
+                />
+              </PracticePanel>
+            </Box>
+          </Box>
         )}
       </Stack>
     </Container>

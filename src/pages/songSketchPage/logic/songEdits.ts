@@ -200,3 +200,29 @@ export function moveInOrder(song: Song, from: number, to: number): Song {
   order.splice(to, 0, moved);
   return { ...song, order };
 }
+
+/** 다음 코드 추천 적용: barIndex 다음 마디의 코드를 바꾸고, 마지막 마디면 새 마디를 붙인다. */
+export function setNextBarChord(
+  song: Song,
+  sectionId: string,
+  barIndex: number,
+  chord: SongChord,
+): Song {
+  const section = song.sections[sectionId];
+  if (!section || barIndex < 0 || barIndex >= section.bars.length) return song;
+  if (barIndex + 1 < section.bars.length) {
+    return updateBar(song, sectionId, barIndex + 1, { chord });
+  }
+  return withSection(song, sectionId, (current) => ({
+    ...current,
+    bars: [...current.bars, { chord }],
+  }));
+}
+
+/**
+ * 카포 추천 적용. 곡의 키를 실제로 부를 키로 두고 카포만 바꾼다.
+ * 코드는 도수로 저장되므로 들리는 소리는 그 키 그대로다.
+ */
+export function applyKeyAndCapo(song: Song, tonic: string, capo: number): Song {
+  return { ...song, key: { ...song.key, tonic }, capo };
+}
