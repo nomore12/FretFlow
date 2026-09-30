@@ -157,13 +157,16 @@ describe('공통 메트로놈', () => {
     expect(onTick).not.toHaveBeenCalled();
     expect(audio.notifications[0].time).toBe(10.5);
     flushNotifications();
-    expect(onTick).toHaveBeenCalledWith({
-      tick: 0,
-      measure: 0,
-      step: 0,
-      beat: 0,
-      subdivision: 0,
-    });
+    expect(onTick).toHaveBeenCalledWith(
+      {
+        tick: 0,
+        measure: 0,
+        step: 0,
+        beat: 0,
+        subdivision: 0,
+      },
+      10.5,
+    );
     player.dispose();
   });
 
@@ -221,6 +224,7 @@ describe('공통 메트로놈', () => {
     expect(oldCallback).toHaveBeenCalledTimes(1);
     expect(newCallback).toHaveBeenCalledWith(
       expect.objectContaining({ tick: 1 }),
+      10,
     );
     expect(audio.membranes[0].triggerAttackRelease).toHaveBeenLastCalledWith(
       'C2',
@@ -355,6 +359,7 @@ describe('공통 메트로놈', () => {
     tick(audio.clocks[1]);
     expect(onTick).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ tick: 0 }),
+      10,
     );
     player.dispose();
   });

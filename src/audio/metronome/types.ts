@@ -45,7 +45,8 @@ export interface MetronomeOptions {
   voiceVolumesDb?: Record<string, number>; // 음색별 음량 (드럼·코드 따로)
   totalMeasures?: number;
   sequenceKey?: unknown;
-  onTick?: (position: MetronomePosition) => void;
+  // time: 이 칸이 예약된 오디오 시계 시각 (Tone 컨텍스트 초)
+  onTick?: (position: MetronomePosition, time: number) => void;
   onMeasureComplete?: (completedMeasures: number) => void;
 }
 

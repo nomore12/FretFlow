@@ -197,7 +197,7 @@ export class MetronomePlayer {
             this.stop();
           } else {
             this.publish({ position });
-            this.options.onTick?.(position);
+            this.options.onTick?.(position, time);
           }
         } catch (error) {
           this.fail(error);
