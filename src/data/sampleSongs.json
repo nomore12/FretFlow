@@ -1,0 +1,207 @@
+[
+  {
+    "schemaVersion": 1,
+    "title": "나는 화산의 검객",
+    "key": {
+      "tonic": "G",
+      "mode": "major"
+    },
+    "capo": 0,
+    "bpm": 110,
+    "beatsPerBar": 4,
+    "sections": {
+      "intro": {
+        "id": "intro",
+        "kind": "intro",
+        "name": "인트로",
+        "strum": "down8",
+        "bars": [
+          {
+            "chord": {
+              "degree": 6,
+              "quality": "minor"
+            }
+          },
+          {
+            "chord": {
+              "degree": 4,
+              "quality": "major"
+            }
+          },
+          {
+            "chord": {
+              "degree": 5,
+              "quality": "major"
+            }
+          },
+          {
+            "chord": {
+              "degree": 6,
+              "quality": "minor"
+            }
+          }
+        ]
+      },
+      "verse": {
+        "id": "verse",
+        "kind": "verse",
+        "name": "벌스",
+        "strum": "folk",
+        "bars": [
+          {
+            "chord": {
+              "degree": 1,
+              "quality": "major"
+            },
+            "lyric": "새벽 두 시 반까지"
+          },
+          {
+            "chord": {
+              "degree": 4,
+              "quality": "major"
+            },
+            "lyric": "연재분 정주행"
+          },
+          {
+            "chord": {
+              "degree": 5,
+              "quality": "major"
+            },
+            "lyric": "\"다음 화 결제하기\""
+          },
+          {
+            "chord": {
+              "degree": 1,
+              "quality": "major"
+            },
+            "lyric": "손가락이 먼저 가네"
+          },
+          {
+            "chord": {
+              "degree": 1,
+              "quality": "major"
+            },
+            "lyric": "알람 세 번 끄고"
+          },
+          {
+            "chord": {
+              "degree": 4,
+              "quality": "major"
+            },
+            "lyric": "넥타이 대충 매고"
+          },
+          {
+            "chord": {
+              "degree": 5,
+              "quality": "major"
+            },
+            "lyric": "지옥철 문틈으로"
+          },
+          {
+            "chord": {
+              "degree": 1,
+              "quality": "major"
+            },
+            "lyric": "오늘도 입산하네"
+          }
+        ]
+      },
+      "chorus": {
+        "id": "chorus",
+        "kind": "chorus",
+        "name": "후렴",
+        "strum": "down8",
+        "bars": [
+          {
+            "chord": {
+              "degree": 6,
+              "quality": "minor"
+            },
+            "lyric": "이십사수 매화검법"
+          },
+          {
+            "chord": {
+              "degree": 4,
+              "quality": "major"
+            },
+            "lyric": "매화심결 자하신공"
+          },
+          {
+            "chord": {
+              "degree": 5,
+              "quality": "major"
+            },
+            "lyric": "나는 화산의 검객"
+          },
+          {
+            "chord": {
+              "degree": 6,
+              "quality": "minor"
+            }
+          },
+          {
+            "chord": null,
+            "lyric": "이번 정거장은 을지로, 을지로입니다",
+            "spoken": true
+          },
+          {
+            "chord": {
+              "degree": 1,
+              "quality": "major"
+            },
+            "lyric": "나는 김 차장"
+          },
+          {
+            "chord": null,
+            "lyric": "김 대리, 어제 보고서 결재 올렸어?",
+            "spoken": true
+          }
+        ]
+      },
+      "bridge": {
+        "id": "bridge",
+        "kind": "bridge",
+        "name": "브릿지",
+        "strum": "folk",
+        "bars": [
+          {
+            "chord": {
+              "degree": 6,
+              "quality": "minor"
+            },
+            "lyric": "철없단 소리 들어도"
+          },
+          {
+            "chord": {
+              "degree": 4,
+              "quality": "major"
+            },
+            "lyric": "이 나이에 뭐 하냐 해도"
+          },
+          {
+            "chord": {
+              "degree": 6,
+              "quality": "minor"
+            },
+            "lyric": "퇴근길 한 정거장"
+          },
+          {
+            "chord": {
+              "degree": 4,
+              "quality": "major"
+            },
+            "lyric": "딱 그만큼은"
+          },
+          {
+            "chord": {
+              "degree": 5,
+              "quality": "major"
+            },
+            "lyric": "나도 산에 오르는 걸"
+          }
+        ]
+      }
+    },
+    "order": ["intro", "verse", "chorus", "bridge", "chorus"]
+  }
+]

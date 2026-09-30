@@ -18,6 +18,7 @@ import {
   Album,
   GridOn,
   GraphicEq,
+  Lyrics,
 } from '@mui/icons-material';
 
 const features = [
@@ -57,6 +58,13 @@ const features = [
     icon: <Album fontSize="large" />,
     link: '/backingTracks',
     color: '#9c27b0', // Purple
+  },
+  {
+    title: '송 스케치패드',
+    description: '진행을 고르고 가사를 마디에 맞춰 나만의 곡을 만들어 보세요.',
+    icon: <Lyrics fontSize="large" />,
+    link: '/songs',
+    color: '#009688', // Teal
   },
   {
     title: '지판 탐색기',

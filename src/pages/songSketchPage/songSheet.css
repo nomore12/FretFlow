@@ -1,0 +1,87 @@
+.song-sheet {
+  font-family: inherit;
+  color: #222;
+}
+
+.song-sheet__block {
+  margin-bottom: 20px;
+}
+
+.song-sheet__section {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: #413767;
+}
+
+.song-sheet__bars {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+@media (max-width: 600px) {
+  .song-sheet__bars {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.song-sheet__bar {
+  border-left: 2px solid #c9c2e6;
+  padding: 4px 8px;
+  border-radius: 4px;
+  min-height: 48px;
+}
+
+.song-sheet__bar--current {
+  background: #f0edff;
+  border-left-color: #7664bb;
+}
+
+.song-sheet__chord {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.song-sheet__lyric {
+  font-size: 0.95rem;
+  word-break: keep-all;
+}
+
+.song-sheet__bar--spoken .song-sheet__lyric {
+  font-style: italic;
+}
+
+.song-sheet__spoken-mark {
+  color: #777;
+  margin-right: 4px;
+}
+
+@media print {
+  /* 편집 UI를 숨기고 악보만 흑백으로 인쇄한다. */
+  .no-print {
+    display: none !important;
+  }
+
+  body,
+  .song-print-root,
+  .song-print-root * {
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+
+  .song-sheet__bar,
+  .song-sheet__bar--current {
+    border-left-color: #000 !important;
+  }
+
+  .song-sheet__spoken-mark {
+    color: #000 !important;
+  }
+
+  .song-sheet__block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

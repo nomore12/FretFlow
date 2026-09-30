@@ -13,6 +13,18 @@ export type Quality =
   | 'sus4'
   | 'sus2';
 
+export const QUALITIES: Quality[] = [
+  'major',
+  'minor',
+  '7',
+  'maj7',
+  'm7',
+  'dim',
+  'm7b5',
+  'sus4',
+  'sus2',
+];
+
 export interface Degree {
   degree: number; // 1~7
   quality: string;
@@ -187,4 +199,55 @@ export function diatonicDegrees(mode: Mode): Degree[] {
     degree: index + 1,
     quality,
   }));
+}
+
+// 반음(0~11)마다 도수 + 임시표 표기. 모드에서 자연스러운 쪽을 고른다.
+const CHROMATIC_DEGREES: Record<Mode, [number, number][]> = {
+  major: [
+    [1, 0],
+    [2, -1],
+    [2, 0],
+    [3, -1],
+    [3, 0],
+    [4, 0],
+    [4, 1],
+    [5, 0],
+    [6, -1],
+    [6, 0],
+    [7, -1],
+    [7, 0],
+  ],
+  minor: [
+    [1, 0],
+    [2, -1],
+    [2, 0],
+    [3, 0],
+    [3, 1],
+    [4, 0],
+    [4, 1],
+    [5, 0],
+    [6, 0],
+    [6, 1],
+    [7, 0],
+    [7, 1],
+  ],
+};
+
+/** 으뜸음부터 반음씩 12개 근음을 도수로 표현한다. "더 보기" 코드 선택용. */
+export function chromaticDegrees(
+  mode: Mode,
+): { degree: number; accidental?: number }[] {
+  return CHROMATIC_DEGREES[mode].map(([degree, accidental]) =>
+    accidental === 0 ? { degree } : { degree, accidental },
+  );
+}
+
+/** 'G', 'F#m'처럼 키를 코드 이름 형태로 쓴다. */
+export function keyLabel(key: SongKey): string {
+  return key.tonic + (key.mode === 'minor' ? 'm' : '');
+}
+
+/** 키 선택 목록. 모드별 흔한 표기 12개. */
+export function tonicOptions(mode: Mode): string[] {
+  return [...TONIC_NAMES[mode]];
 }

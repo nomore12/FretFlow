@@ -12,6 +12,8 @@ import ChordGeneratorTest from '../pages/ChordGeneratorTest';
 import { ChordGridPage } from '../pages/exerciseChord';
 import RhythmPage from '../pages/rhythmPage/RhythmPage';
 import { RhythmEvent } from '../pages/rhythmPage/types';
+import SongListPage from '../pages/songSketchPage/SongListPage';
+import SongEditorPage from '../pages/songSketchPage/SongEditorPage';
 
 export interface RouteItem {
   path: string;
@@ -82,6 +84,16 @@ const routes: RouteItem[] = [
   {
     path: '/rhythm',
     element: <RhythmPage />,
+    exact: true,
+  },
+  {
+    path: '/songs',
+    element: <SongListPage />,
+    exact: true,
+  },
+  {
+    path: '/songs/:id',
+    element: <SongEditorPage />,
     exact: true,
   },
 ];
