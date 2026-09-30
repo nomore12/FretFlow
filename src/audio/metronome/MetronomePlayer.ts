@@ -1,15 +1,21 @@
 import * as Tone from 'tone';
 import {
+  MetronomeNote,
   MetronomeOptions,
   MetronomePosition,
   MetronomeSnapshot,
 } from './types';
 
+type Voice = Tone.MembraneSynth | Tone.NoiseSynth | Tone.PolySynth;
+
+const DEFAULT_MAX_POLYPHONY = 24;
+
 export class MetronomePlayer {
   private options: MetronomeOptions;
   private clock: Tone.Clock | null = null;
   private output: Tone.Volume | null = null;
-  private voices = new Map<string, Tone.MembraneSynth | Tone.NoiseSynth>();
+  private voices = new Map<string, Voice>();
+  private voiceGains = new Map<string, Tone.Volume>();
   private notificationTimers = new Set<number>();
   private countdownTimer: ReturnType<typeof setTimeout> | null = null;
   private generation = 0;
@@ -68,6 +74,27 @@ export class MetronomePlayer {
     if (this.output && options.volumeDb !== previous.volumeDb) {
       this.output.volume.value = options.volumeDb ?? 0;
     }
+    if (options.voiceVolumesDb !== previous.voiceVolumesDb) {
+      this.voiceGains.forEach((gain, name) => {
+        gain.volume.value = options.voiceVolumesDb?.[name] ?? 0;
+      });
+    }
+  };
+
+  private createVoice = (
+    definition: MetronomeOptions['voices'][string],
+  ): Voice => {
+    switch (definition.kind) {
+      case 'membrane':
+        return new Tone.MembraneSynth(definition.options);
+      case 'noise':
+        return new Tone.NoiseSynth(definition.options);
+      case 'poly': {
+        const voice = new Tone.PolySynth(Tone.Synth, definition.options);
+        voice.maxPolyphony = definition.maxPolyphony ?? DEFAULT_MAX_POLYPHONY;
+        return voice;
+      }
+    }
   };
 
   start = async (countdownSeconds = 0) => {
@@ -106,12 +133,13 @@ export class MetronomePlayer {
     try {
       this.output = new Tone.Volume(this.options.volumeDb ?? 0).toDestination();
       for (const [name, definition] of Object.entries(this.options.voices)) {
-        const voice =
-          definition.kind === 'membrane'
-            ? new Tone.MembraneSynth(definition.options)
-            : new Tone.NoiseSynth(definition.options);
+        // 음색마다 음량 노드를 두어 드럼·코드 음량을 따로 조절한다.
+        const gain = new Tone.Volume(this.options.voiceVolumesDb?.[name] ?? 0);
+        gain.connect(this.output);
+        this.voiceGains.set(name, gain);
+        const voice = this.createVoice(definition);
         this.voices.set(name, voice);
-        voice.connect(this.output);
+        voice.connect(gain);
       }
 
       let tick = 0;
@@ -151,21 +179,9 @@ export class MetronomePlayer {
     if (finished) {
       this.clock?.stop(time);
     } else {
-      const note = this.options.getNote(position);
-      if (note) {
-        const voice = this.voices.get(note.voice);
-        const duration = (60 / this.bpm) * note.durationBeats;
-        if (voice instanceof Tone.MembraneSynth) {
-          voice.triggerAttackRelease(
-            note.pitch ?? 'C2',
-            duration,
-            time,
-            note.velocity,
-          );
-        } else if (voice instanceof Tone.NoiseSynth) {
-          voice.triggerAttackRelease(duration, time, note.velocity);
-        }
-      }
+      const notes = this.options.getNote(position);
+      if (Array.isArray(notes)) notes.forEach((note) => this.play(note, time));
+      else if (notes) this.play(notes, time);
     }
 
     // 오디오 시계의 타이머를 사용해 비활성 탭에서도 진행 콜백을 버리지 않는다.
@@ -192,6 +208,29 @@ export class MetronomePlayer {
     this.notificationTimers.add(timer);
   };
 
+  private play = (note: MetronomeNote, time: number) => {
+    const voice = this.voices.get(note.voice);
+    const duration = (60 / this.bpm) * note.durationBeats;
+    const at = time + (note.delaySeconds ?? 0);
+    if (voice instanceof Tone.MembraneSynth) {
+      voice.triggerAttackRelease(
+        note.pitch ?? 'C2',
+        duration,
+        at,
+        note.velocity,
+      );
+    } else if (voice instanceof Tone.NoiseSynth) {
+      voice.triggerAttackRelease(duration, at, note.velocity);
+    } else if (voice instanceof Tone.PolySynth) {
+      voice.triggerAttackRelease(
+        note.pitch ?? 'C4',
+        duration,
+        at,
+        note.velocity,
+      );
+    }
+  };
+
   private releaseAudio = () => {
     const context = Tone.getContext();
     this.notificationTimers.forEach((timer) => context.clearTimeout(timer));
@@ -200,6 +239,8 @@ export class MetronomePlayer {
     this.clock = null;
     this.voices.forEach((voice) => voice.dispose());
     this.voices.clear();
+    this.voiceGains.forEach((gain) => gain.dispose());
+    this.voiceGains.clear();
     this.output?.dispose();
     this.output = null;
   };

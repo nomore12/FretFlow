@@ -21,8 +21,10 @@ const audio = vi.hoisted(() => ({
   clocks: [] as FakeClock[],
   membranes: [] as FakeVoice[],
   noises: [] as FakeVoice[],
+  polys: [] as (FakeVoice & { maxPolyphony: number })[],
   outputs: [] as {
     volume: { value: number };
+    connect: ReturnType<typeof vi.fn>;
     dispose: ReturnType<typeof vi.fn>;
   }[],
   notifications: [] as { callback: () => void; time: number; id: number }[],
@@ -59,8 +61,18 @@ vi.mock('tone', () => {
       audio.noises.push(this);
     }
   }
+  class PolySynth implements FakeVoice {
+    connect = vi.fn();
+    triggerAttackRelease = vi.fn();
+    dispose = vi.fn();
+    maxPolyphony = 32;
+    constructor() {
+      audio.polys.push(this);
+    }
+  }
   class Volume {
     volume: { value: number };
+    connect = vi.fn();
     dispose = vi.fn();
     constructor(value: number) {
       this.volume = { value };
@@ -76,6 +88,8 @@ vi.mock('tone', () => {
     Clock,
     MembraneSynth,
     NoiseSynth,
+    PolySynth,
+    Synth: class {},
     Volume,
     getContext: () => ({
       immediate: () => 10,
@@ -117,6 +131,7 @@ beforeEach(() => {
   audio.clocks.length = 0;
   audio.membranes.length = 0;
   audio.noises.length = 0;
+  audio.polys.length = 0;
   audio.outputs.length = 0;
   audio.notifications.length = 0;
 });
@@ -396,5 +411,51 @@ describe('공통 메트로놈', () => {
     expect(audio.membranes[0].dispose).toHaveBeenCalledOnce();
     expect(audio.noises[0].dispose).toHaveBeenCalledOnce();
     expect(audio.outputs[0].dispose).toHaveBeenCalledOnce();
+  });
+
+  it('한 칸에 여러 음을 줄마다 늦춰 화음 음색으로 친다', async () => {
+    const player = new MetronomePlayer(
+      options({
+        voices: { guitar: { kind: 'poly', maxPolyphony: 12 } },
+        getNote: () => [
+          { voice: 'guitar', pitch: 'E2', durationBeats: 0.5, velocity: 0.8 },
+          {
+            voice: 'guitar',
+            pitch: 'B2',
+            durationBeats: 0.5,
+            velocity: 0.8,
+            delaySeconds: 0.012,
+          },
+        ],
+      }),
+    );
+    await player.start();
+    tick(audio.clocks[0], 10);
+    expect(audio.polys[0].maxPolyphony).toBe(12);
+    expect(audio.polys[0].triggerAttackRelease.mock.calls).toEqual([
+      ['E2', 0.5, 10, 0.8],
+      ['B2', 0.5, 10.012, 0.8],
+    ]);
+    player.dispose();
+    expect(audio.polys[0].dispose).toHaveBeenCalledOnce();
+  });
+
+  it('음색별 음량을 재생 중에 바꿔도 다시 시작하지 않는다', async () => {
+    const initial = options({ voiceVolumesDb: { click: -6, rest: -12 } });
+    const player = new MetronomePlayer(initial);
+    await player.start();
+    const [master, click, rest] = audio.outputs;
+    expect(click.volume.value).toBe(-6);
+    expect(rest.volume.value).toBe(-12);
+    expect(click.connect).toHaveBeenCalledWith(master);
+    expect(audio.membranes[0].connect).toHaveBeenCalledWith(click);
+    player.configure({ ...initial, voiceVolumesDb: { click: -20, rest: 0 } });
+    expect(click.volume.value).toBe(-20);
+    expect(rest.volume.value).toBe(0);
+    expect(audio.clocks).toHaveLength(1);
+    player.dispose();
+    audio.outputs.forEach((output) =>
+      expect(output.dispose).toHaveBeenCalledOnce(),
+    );
   });
 });
