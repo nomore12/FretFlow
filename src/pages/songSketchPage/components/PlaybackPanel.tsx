@@ -13,21 +13,107 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { PlayArrow, Stop } from '@mui/icons-material';
+import { FiberManualRecord, PlayArrow, Stop } from '@mui/icons-material';
 import { SongKey } from '../../../utils/pitch';
 import { Song } from '../types';
 import { chordLabel } from '../logic/chordSheet';
 import { TimelineBar } from '../logic/timeline';
 import { PlaybackMode, VOLUME_MIN_DB } from '../useSongPlayback';
+import { RecorderStatus } from '../recording/TakeRecorder';
 import { ChordShape } from './ChordPicker';
 
 const VOLUME_MAX_DB = 0;
+
+export interface RecordingControls {
+  status: RecorderStatus;
+  supported: boolean;
+  error: string | null;
+  blockedReason: string | null; // 지금 녹음할 수 없는 이유
+  onRecord: () => void;
+  onStopRecord: () => void;
+  onClearError: () => void;
+}
+
+const RECORD_STATUS_TEXT: Record<RecorderStatus, string> = {
+  idle: '',
+  requesting: '마이크 확인 중…',
+  armed: '다음 마디선부터 녹음합니다',
+  recording: '녹음 중 · 정지하면 이 마디 끝에서 끝납니다',
+  finishing: '이 마디 끝에서 녹음을 끝냅니다',
+  saving: '저장 중…',
+};
+
+function RecordControls({ recording }: { recording: RecordingControls }) {
+  const { status, supported, blockedReason } = recording;
+  const active = status !== 'idle';
+  return (
+    <Stack spacing={1}>
+      <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+        {active ? (
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={<Stop />}
+            disabled={status === 'finishing' || status === 'saving'}
+            onClick={recording.onStopRecord}
+          >
+            녹음 정지
+          </Button>
+        ) : (
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<FiberManualRecord sx={{ color: '#ff5a5f' }} />}
+            disabled={!supported || blockedReason !== null}
+            onClick={recording.onRecord}
+          >
+            녹음
+          </Button>
+        )}
+        <Typography
+          variant="body2"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            fontWeight: status === 'recording' ? 700 : 400,
+          }}
+        >
+          {status === 'recording' && (
+            <FiberManualRecord
+              fontSize="small"
+              sx={{
+                color: '#ff5a5f',
+                animation: 'songRecBlink 1s steps(2) infinite',
+                '@keyframes songRecBlink': { '50%': { opacity: 0.2 } },
+              }}
+            />
+          )}
+          {active
+            ? RECORD_STATUS_TEXT[status]
+            : !supported
+              ? '이 브라우저는 녹음을 지원하지 않습니다.'
+              : blockedReason ??
+                '버튼을 누른 뒤 오는 첫 마디가 테이크의 시작입니다.'}
+        </Typography>
+      </Stack>
+      {recording.error && (
+        <Alert severity="error" onClose={recording.onClearError}>
+          {recording.error}
+        </Alert>
+      )}
+    </Stack>
+  );
+}
 
 interface PlaybackPanelProps {
   song: Song;
   shapeKey: SongKey;
   mode: PlaybackMode;
   sectionId: string | null;
+  bpm: number;
+  locked: boolean; // 녹음·테이크 재생 중에는 모드와 섹션을 바꾸지 않는다
+  recording: RecordingControls;
   drumVolumeDb: number;
   chordVolumeDb: number;
   isBusy: boolean;
@@ -74,6 +160,9 @@ export default function PlaybackPanel({
   shapeKey,
   mode,
   sectionId,
+  bpm,
+  locked,
+  recording,
   drumVolumeDb,
   chordVolumeDb,
   isBusy,
@@ -110,6 +199,7 @@ export default function PlaybackPanel({
         <ToggleButtonGroup
           exclusive
           size="small"
+          disabled={locked}
           value={mode}
           onChange={(_, value: PlaybackMode | null) => {
             if (value) onModeChange(value);
@@ -134,6 +224,7 @@ export default function PlaybackPanel({
             <Select
               labelId="loop-section"
               label="반복할 섹션"
+              disabled={locked}
               value={sectionId ?? ''}
               onChange={(event) => onSectionChange(event.target.value)}
             >
@@ -145,8 +236,10 @@ export default function PlaybackPanel({
             </Select>
           </FormControl>
         )}
-        <Typography variant="body2">{song.bpm} BPM</Typography>
+        <Typography variant="body2">{bpm} BPM</Typography>
       </Stack>
+
+      <RecordControls recording={recording} />
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
         <VolumeSlider

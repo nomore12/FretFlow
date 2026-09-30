@@ -8,6 +8,7 @@ import {
   newId,
 } from '../pages/songSketchPage/logic/songEdits';
 import { SongData, readSongData } from '../pages/songSketchPage/logic/songIO';
+import { deleteTakesForSong } from '../pages/songSketchPage/recording/takesDb';
 
 interface SongStore {
   songs: Record<string, Song>;
@@ -41,13 +42,17 @@ const useSongStore = create<SongStore>()(
           renameSong: (id, title) =>
             get().updateSong(id, (song) => ({ ...song, title })),
 
-          // 녹음 테이크 삭제는 3단계에서 IndexedDB 래퍼와 함께 연결한다.
-          deleteSong: (id) =>
+          // 곡을 지우면 IndexedDB의 녹음 테이크도 함께 지운다.
+          deleteSong: (id) => {
+            deleteTakesForSong(id).catch((error) =>
+              console.error('테이크 삭제 오류:', error),
+            );
             set((state) => {
               const songs = { ...state.songs };
               delete songs[id];
               return { songs };
-            }),
+            });
+          },
 
           duplicateSong: (id) => {
             const song = get().songs[id];

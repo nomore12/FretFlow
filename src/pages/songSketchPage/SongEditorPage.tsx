@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -20,10 +26,15 @@ import useSongStore from '../../store/useSongStore';
 import { shapeKey } from '../../utils/pitch';
 import { SECTION_KINDS, SECTION_KIND_LABELS, SectionKind, Song } from './types';
 import { buildChordSheet } from './logic/chordSheet';
-import { addSection } from './logic/songEdits';
+import { addSection, newId } from './logic/songEdits';
 import { serializeSong } from './logic/songIO';
 import ChordSheetView, { SheetHighlight } from './components/ChordSheetView';
-import PlaybackPanel from './components/PlaybackPanel';
+import PlaybackPanel, { RecordingControls } from './components/PlaybackPanel';
+import TakesPanel from './components/TakesPanel';
+import { Take } from './recording/takes';
+import useTakePlayer from './recording/useTakePlayer';
+import useTakeRecorder from './recording/useTakeRecorder';
+import useTakes from './recording/useTakes';
 import useSongPlayback, { PlaybackMode } from './useSongPlayback';
 import OrderEditor from './components/OrderEditor';
 import SectionEditor from './components/SectionEditor';
@@ -95,22 +106,125 @@ function SongEditor({ song }: { song: Song }) {
       ? loopSectionId
       : song.order[0] ?? Object.keys(song.sections)[0] ?? null;
 
+  const takes = useTakes(id);
+  // 테이크를 반주와 함께 들을 때는 그 테이크의 섹션·템포로 반복한다.
+  const [backing, setBacking] = useState<{
+    take: Take;
+    started: boolean;
+  } | null>(null);
+  const playMode: PlaybackMode = backing ? 'section' : mode;
+  const playSectionId = backing ? backing.take.sectionId : sectionId;
+  const bpm = backing ? backing.take.bpm : song.bpm;
+
+  // 녹음 버튼을 누를 때의 섹션·템포를 테이크에 기록한다.
+  const recordingFor = useRef<{ sectionId: string; bpm: number } | null>(null);
+  const recorder = useTakeRecorder((recorded) => {
+    const target = recordingFor.current;
+    if (!target) return;
+    takes.add({
+      ...recorded,
+      id: newId(),
+      songId: id,
+      sectionId: target.sectionId,
+      bpm: target.bpm,
+      createdAt: Date.now(),
+      starred: false,
+      memo: '',
+    });
+  });
+  const takePlayer = useTakePlayer((endedMode) => {
+    if (endedMode === 'backing') {
+      playback.stop();
+      setBacking(null);
+    }
+  });
+
   const playback = useSongPlayback({
     song,
-    mode,
-    sectionId,
+    mode: playMode,
+    sectionId: playSectionId,
+    bpm,
     drumVolumeDb,
     chordVolumeDb,
+    onBarStart: (measure, atMs) => {
+      recorder.barStarted(measure, atMs);
+      takePlayer.barStarted(measure);
+    },
   });
+
+  // 반주와 함께 듣기: 테이크 섹션으로 설정이 바뀐 뒤 카운트다운 없이 시작한다.
+  useEffect(() => {
+    if (backing && !backing.started && !playback.isBusy) {
+      setBacking({ ...backing, started: true });
+      playback.start(0);
+    }
+  }, [backing, playback]);
+
+  // 반주가 멈추면 녹음을 마무리하고 함께 듣던 테이크도 멈춘다.
+  const wasBusy = useRef(false);
+  const backingRef = useRef(backing);
+  backingRef.current = backing;
+  useEffect(() => {
+    if (wasBusy.current && !playback.isBusy) {
+      recorder.playbackStopped();
+      if (backingRef.current?.started) {
+        takePlayer.stop();
+        setBacking(null);
+      }
+    }
+    wasBusy.current = playback.isBusy;
+  }, [playback.isBusy, recorder, takePlayer]);
+
+  const playTake = (take: Take, takeMode: 'solo' | 'backing') => {
+    if (takeMode === 'solo') {
+      if (backing) {
+        playback.stop();
+        setBacking(null);
+      }
+      takePlayer.playSolo(take);
+      return;
+    }
+    if (playback.isBusy) playback.stop();
+    takePlayer.prepareWithBacking(take);
+    setBacking({ take, started: false });
+  };
+
+  const stopTake = () => {
+    takePlayer.stop();
+    if (backing) {
+      playback.stop();
+      setBacking(null);
+    }
+  };
+
+  const recording: RecordingControls = {
+    status: recorder.status,
+    supported: recorder.supported,
+    error: recorder.error,
+    blockedReason: backing
+      ? '테이크를 반주와 함께 듣는 중에는 녹음할 수 없습니다.'
+      : playMode !== 'section'
+        ? '섹션 반복 모드에서 녹음할 수 있습니다.'
+        : !playback.isPlaying
+          ? '섹션 반복을 재생한 뒤 녹음 버튼을 누르세요.'
+          : null,
+    onRecord: () => {
+      if (!playSectionId) return;
+      recordingFor.current = { sectionId: playSectionId, bpm };
+      recorder.arm();
+    },
+    onStopRecord: recorder.requestStop,
+    onClearError: recorder.clearError,
+  };
   const current = playback.isPlaying ? playback.current : null;
   const highlight = useMemo<SheetHighlight | null>(
     () =>
       current && {
         sectionId: current.sectionId,
         barIndex: current.barIndex,
-        timelineIndex: mode === 'song' ? current.index : null,
+        timelineIndex: playMode === 'song' ? current.index : null,
       },
-    [current, mode],
+    [current, playMode],
   );
 
   return (
@@ -156,8 +270,11 @@ function SongEditor({ song }: { song: Song }) {
             <PlaybackPanel
               song={song}
               shapeKey={shape}
-              mode={mode}
-              sectionId={sectionId}
+              mode={playMode}
+              sectionId={playSectionId}
+              bpm={bpm}
+              locked={recorder.busy || backing !== null}
+              recording={recording}
               drumVolumeDb={drumVolumeDb}
               chordVolumeDb={chordVolumeDb}
               isBusy={playback.isBusy}
@@ -169,8 +286,26 @@ function SongEditor({ song }: { song: Song }) {
               onSectionChange={setLoopSectionId}
               onDrumVolumeChange={setDrumVolumeDb}
               onChordVolumeChange={setChordVolumeDb}
-              onStart={playback.start}
+              onStart={() => playback.start()}
               onStop={playback.stop}
+            />
+          </PracticePanel>
+        </Box>
+
+        <Box className="no-print">
+          <PracticePanel>
+            <TakesPanel
+              song={song}
+              takes={takes.takes}
+              error={takes.error}
+              usage={takes.usage}
+              playingId={takePlayer.playingId}
+              playingMode={takePlayer.playingMode}
+              onPlay={playTake}
+              onStop={stopTake}
+              onUpdate={takes.update}
+              onDelete={takes.remove}
+              onClearError={takes.clearError}
             />
           </PracticePanel>
         </Box>

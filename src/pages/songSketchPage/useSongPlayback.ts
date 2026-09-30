@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import * as Tone from 'tone';
 import useMetronome from '../../hooks/useMetronome';
 import { SONG_VOICES } from '../../audio/metronome/voices';
 import {
@@ -36,12 +37,31 @@ const lookupShape: ShapeLookup = (name) => {
   return shapeCache.get(name)!;
 };
 
+/**
+ * 오디오 시계 시각을 "스피커에서 실제로 들리는" performance.now() 시각으로 바꾼다.
+ * 화면 콜백이 늦게 불려도 마디선 시각이 흔들리지 않는다.
+ */
+export function heardAtMs(audioTime: number): number {
+  const context = Tone.getContext().rawContext as AudioContext;
+  if (typeof context.getOutputTimestamp === 'function') {
+    const { contextTime, performanceTime } = context.getOutputTimestamp();
+    if (contextTime !== undefined && performanceTime) {
+      return performanceTime + (audioTime - contextTime) * 1000;
+    }
+  }
+  const latency = (context.outputLatency || 0) + (context.baseLatency || 0);
+  return performance.now() + (audioTime - context.currentTime + latency) * 1000;
+}
+
 interface SongPlaybackOptions {
   song: Song;
   mode: PlaybackMode;
   sectionId: string | null; // 섹션 반복일 때
   drumVolumeDb: number;
   chordVolumeDb: number;
+  bpm?: number; // 테이크를 녹음 당시 템포로 반주할 때
+  // 마디가 시작될 때 (첫 마디 포함). heardAt은 그 마디선이 들리는 performance.now() 시각.
+  onBarStart?: (measure: number, heardAt: number) => void;
 }
 
 /** 섹션 반복 / 곡 전체 재생. 오디오 수명주기는 useMetronome이 맡는다. */
@@ -51,6 +71,8 @@ export default function useSongPlayback({
   sectionId,
   drumVolumeDb,
   chordVolumeDb,
+  bpm = song.bpm,
+  onBarStart,
 }: SongPlaybackOptions) {
   const timeline: TimelineBar[] = useMemo(
     () =>
@@ -76,7 +98,7 @@ export default function useSongPlayback({
   );
 
   const playback = useMetronome({
-    bpm: song.bpm,
+    bpm,
     beatsPerMeasure: 4,
     subdivisions: STEPS_PER_BEAT,
     voices: SONG_VOICES,
@@ -87,6 +109,9 @@ export default function useSongPlayback({
       if (bars.length === 0) return null;
       if (mode === 'song' && measure >= bars.length) return null;
       return notesAtStep(bars[measure % bars.length], step);
+    },
+    onTick: ({ measure, step }, time) => {
+      if (step === 0) onBarStart?.(measure, heardAtMs(time));
     },
     onMeasureComplete: (completed) => {
       // 곡 전체 재생은 마지막 마디가 끝나면 멈춘다.
@@ -113,6 +138,7 @@ export default function useSongPlayback({
     timeline,
     current,
     next,
-    start: () => playback.start(COUNTDOWN_SECONDS),
+    start: (countdownSeconds = COUNTDOWN_SECONDS) =>
+      playback.start(countdownSeconds),
   };
 }
