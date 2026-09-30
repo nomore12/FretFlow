@@ -65,3 +65,17 @@ export const RHYTHM_VOICES: MetronomeOptions['voices'] = {
     },
   },
 };
+
+// 송 스케치패드 반주: 드럼 + 기타 줄처럼 짧게 튕기고 빨리 사라지는 화음 음색.
+export const SONG_VOICES: MetronomeOptions['voices'] = {
+  ...DRUM_VOICES,
+  guitar: {
+    kind: 'poly',
+    maxPolyphony: 32,
+    options: {
+      oscillator: { type: 'triangle' },
+      envelope: { attack: 0.002, decay: 0.8, sustain: 0.02, release: 0.25 },
+      volume: -8,
+    },
+  },
+};

@@ -76,12 +76,14 @@ interface SectionEditorProps {
   section: Section;
   shapeKey: SongKey;
   onUpdate: SongUpdate;
+  currentBarIndex?: number | null; // 재생 중인 마디
 }
 
-export default function SectionEditor({
+function SectionEditor({
   section,
   shapeKey,
   onUpdate,
+  currentBarIndex = null,
 }: SectionEditorProps) {
   const [presetId, setPresetId] = useState('');
   const [pickingBar, setPickingBar] = useState<number | null>(null);
@@ -225,7 +227,13 @@ export default function SectionEditor({
               sx={{
                 p: 1,
                 borderRadius: 2,
-                bgcolor: 'rgba(255,255,255,.7)',
+                bgcolor:
+                  barIndex === currentBarIndex
+                    ? '#f0edff'
+                    : 'rgba(255,255,255,.7)',
+                outline:
+                  barIndex === currentBarIndex ? '2px solid #7664bb' : 'none',
+                transition: 'background-color .15s',
               }}
             >
               <Stack direction="row" spacing={1} alignItems="center">
@@ -353,3 +361,6 @@ export default function SectionEditor({
     </Stack>
   );
 }
+
+// 재생 중 칸마다 페이지가 다시 그려지므로, 바뀐 섹션만 다시 그린다.
+export default React.memo(SectionEditor);

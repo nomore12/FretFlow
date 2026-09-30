@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
+  Box,
   Button,
   Container,
   FormControl,
@@ -21,7 +22,9 @@ import { SECTION_KINDS, SECTION_KIND_LABELS, SectionKind, Song } from './types';
 import { buildChordSheet } from './logic/chordSheet';
 import { addSection } from './logic/songEdits';
 import { serializeSong } from './logic/songIO';
-import ChordSheetView from './components/ChordSheetView';
+import ChordSheetView, { SheetHighlight } from './components/ChordSheetView';
+import PlaybackPanel from './components/PlaybackPanel';
+import useSongPlayback, { PlaybackMode } from './useSongPlayback';
 import OrderEditor from './components/OrderEditor';
 import SectionEditor from './components/SectionEditor';
 import SongSettings from './components/SongSettings';
@@ -48,18 +51,8 @@ function sectionsInDisplayOrder(song: Song) {
 export default function SongEditorPage() {
   const { id = '' } = useParams();
   const song = useSongStore((state) => state.songs[id]);
-  const updateSong = useSongStore((state) => state.updateSong);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const view: View = searchParams.get('view') === 'sheet' ? 'sheet' : 'edit';
-  const [newKind, setNewKind] = useState<SectionKind>('verse');
 
-  const update = useCallback(
-    (recipe: (song: Song) => Song) => updateSong(id, recipe),
-    [id, updateSong],
-  );
-  const sheet = useMemo(() => (song ? buildChordSheet(song) : null), [song]);
-
-  if (!song || !sheet) {
+  if (!song) {
     return (
       <Container maxWidth="md" sx={{ py: 6 }}>
         <Stack spacing={2} alignItems="center">
@@ -72,7 +65,53 @@ export default function SongEditorPage() {
     );
   }
 
-  const shape = shapeKey(song.key, song.capo);
+  return <SongEditor song={song} />;
+}
+
+function SongEditor({ song }: { song: Song }) {
+  const id = song.id;
+  const updateSong = useSongStore((state) => state.updateSong);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view: View = searchParams.get('view') === 'sheet' ? 'sheet' : 'edit';
+  const [newKind, setNewKind] = useState<SectionKind>('verse');
+  const [mode, setMode] = useState<PlaybackMode>('section');
+  const [loopSectionId, setLoopSectionId] = useState<string | null>(null);
+  const [drumVolumeDb, setDrumVolumeDb] = useState(-12);
+  const [chordVolumeDb, setChordVolumeDb] = useState(-6);
+
+  const update = useCallback(
+    (recipe: (song: Song) => Song) => updateSong(id, recipe),
+    [id, updateSong],
+  );
+  const sheet = useMemo(() => buildChordSheet(song), [song]);
+  const shape = useMemo(
+    () => shapeKey(song.key, song.capo),
+    [song.key, song.capo],
+  );
+
+  // 반복할 섹션이 지워졌으면 재생 순서의 첫 섹션으로 돌아간다.
+  const sectionId =
+    loopSectionId && song.sections[loopSectionId]
+      ? loopSectionId
+      : song.order[0] ?? Object.keys(song.sections)[0] ?? null;
+
+  const playback = useSongPlayback({
+    song,
+    mode,
+    sectionId,
+    drumVolumeDb,
+    chordVolumeDb,
+  });
+  const current = playback.isPlaying ? playback.current : null;
+  const highlight = useMemo<SheetHighlight | null>(
+    () =>
+      current && {
+        sectionId: current.sectionId,
+        barIndex: current.barIndex,
+        timelineIndex: mode === 'song' ? current.index : null,
+      },
+    [current, mode],
+  );
 
   return (
     <Container
@@ -112,6 +151,30 @@ export default function SongEditorPage() {
           </Button>
         </Stack>
 
+        <Box className="no-print">
+          <PracticePanel controls countdown={playback.countdown}>
+            <PlaybackPanel
+              song={song}
+              shapeKey={shape}
+              mode={mode}
+              sectionId={sectionId}
+              drumVolumeDb={drumVolumeDb}
+              chordVolumeDb={chordVolumeDb}
+              isBusy={playback.isBusy}
+              isPlaying={playback.isPlaying}
+              error={playback.error}
+              current={current}
+              next={playback.next}
+              onModeChange={setMode}
+              onSectionChange={setLoopSectionId}
+              onDrumVolumeChange={setDrumVolumeDb}
+              onChordVolumeChange={setChordVolumeDb}
+              onStart={playback.start}
+              onStop={playback.stop}
+            />
+          </PracticePanel>
+        </Box>
+
         <Tabs
           className="no-print"
           value={view}
@@ -130,7 +193,7 @@ export default function SongEditorPage() {
             elevation={3}
             sx={{ p: { xs: 2, sm: 4 }, borderRadius: 3, minWidth: 0 }}
           >
-            <ChordSheetView sheet={sheet} />
+            <ChordSheetView sheet={sheet} current={highlight} />
           </Paper>
         ) : (
           <>
@@ -154,6 +217,9 @@ export default function SongEditorPage() {
                   section={section}
                   shapeKey={shape}
                   onUpdate={update}
+                  currentBarIndex={
+                    current?.sectionId === section.id ? current.barIndex : null
+                  }
                 />
                 {!song.order.includes(section.id) && (
                   <Typography variant="caption" color="warning.main">

@@ -29,7 +29,7 @@ import {
   diatonicDegrees,
 } from '../../../utils/pitch';
 import { SongChord } from '../types';
-import { chordLabel } from '../logic/chordSheet';
+import { NO_CHORD, chordLabel } from '../logic/chordSheet';
 import { toSongChord } from '../logic/songEdits';
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
@@ -71,7 +71,10 @@ export function ChordShape({
   focused?: boolean;
 }) {
   const data = useMemo(
-    () => getChordData(name, DifficultyLevel.WITH_SPECIAL),
+    () =>
+      name === NO_CHORD
+        ? null
+        : getChordData(name, DifficultyLevel.WITH_SPECIAL),
     [name],
   );
   return (
@@ -93,9 +96,11 @@ export function ChordShape({
       ) : (
         <Stack alignItems="center" sx={{ pt: 1 }}>
           <Typography fontWeight={700}>{name}</Typography>
-          <Typography variant="caption" color="text.secondary">
-            운지 없음
-          </Typography>
+          {name !== NO_CHORD && (
+            <Typography variant="caption" color="text.secondary">
+              운지 없음
+            </Typography>
+          )}
         </Stack>
       )}
     </Box>

@@ -4,20 +4,36 @@ import { ContentCopy, Print } from '@mui/icons-material';
 import {
   ChordSheet,
   SPOKEN_MARK,
+  SheetBar,
+  SheetBlock,
   capoCaption,
   chordSheetToText,
 } from '../logic/chordSheet';
 import '../songSheet.css';
 
-interface ChordSheetViewProps {
-  sheet: ChordSheet;
-  currentIndex?: number | null; // 재생 중인 타임라인 마디 (2단계)
+export interface SheetHighlight {
+  sectionId: string;
+  barIndex: number;
+  timelineIndex: number | null; // 곡 전체 재생이면 정확한 위치, 섹션 반복이면 null
 }
 
-export default function ChordSheetView({
-  sheet,
-  currentIndex = null,
-}: ChordSheetViewProps) {
+interface ChordSheetViewProps {
+  sheet: ChordSheet;
+  current?: SheetHighlight | null;
+}
+
+const isCurrentBar = (
+  current: SheetHighlight | null,
+  block: SheetBlock,
+  bar: SheetBar,
+) =>
+  current !== null &&
+  (current.timelineIndex !== null
+    ? current.timelineIndex === bar.timelineIndex
+    : current.sectionId === block.section.id &&
+      current.barIndex === bar.barIndex);
+
+function ChordSheetView({ sheet, current = null }: ChordSheetViewProps) {
   const [copyState, setCopyState] = useState<'idle' | 'done' | 'failed'>(
     'idle',
   );
@@ -88,7 +104,7 @@ export default function ChordSheetView({
                 className={[
                   'song-sheet__bar',
                   bar.spoken && 'song-sheet__bar--spoken',
-                  bar.timelineIndex === currentIndex &&
+                  isCurrentBar(current, block, bar) &&
                     'song-sheet__bar--current',
                 ]
                   .filter(Boolean)
@@ -111,3 +127,5 @@ export default function ChordSheetView({
     </Stack>
   );
 }
+
+export default React.memo(ChordSheetView);
