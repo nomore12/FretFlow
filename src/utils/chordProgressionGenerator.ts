@@ -1,6 +1,7 @@
 import chordProgressions from '../data/chordProgressions.json';
 import openChords from '../data/openChords.json';
 import { findChordEnhanced } from './chordGenerator';
+import { Mode, degreeRootName } from './pitch';
 
 // 타입 정의
 type ChordProgressions = typeof chordProgressions;
@@ -114,20 +115,11 @@ export function degreeToChord(
     throw new Error(`Unknown key: ${rootKey}`);
   }
 
-  // 도수에 따른 음 계산
-  const notes = keyInfo.notes;
-  let noteIndex = chordInProgression.degree - 1;
-
-  // 임시표 처리
-  if (chordInProgression.accidental) {
-    noteIndex += chordInProgression.accidental;
-  }
-
-  // 순환 처리
-  if (noteIndex < 0) noteIndex += 7;
-  if (noteIndex >= 7) noteIndex -= 7;
-
-  const noteName = notes[noteIndex];
+  // 임시표는 음계 칸이 아니라 반음 단위로 적용한다 (C 키 b7 = Bb).
+  const noteName = degreeRootName(chordInProgression, {
+    tonic: rootKey.replace(/m$/, ''),
+    mode: keyInfo.type as Mode,
+  });
 
   // 코드 퀄리티에 따른 서픽스 결정
   let suffix = '';
