@@ -10,11 +10,37 @@ export interface Take {
   durationMs: number; // 첫 마디선부터 끝까지
   offsetMs: number; // 파일 앞 프리롤. 재생은 여기서 시작한다
   bpm: number; // 녹음 당시 템포 (반주와 함께 들을 때 사용)
+  // 반주와 함께 들을 때의 수동 싱크 보정. 양수면 목소리를 늦게, 음수면 앞당긴다.
+  syncOffsetMs: number;
   starred: boolean;
   memo: string;
 }
 
-export type TakePatch = Partial<Pick<Take, 'starred' | 'memo'>>;
+export type TakePatch = Partial<
+  Pick<Take, 'starred' | 'memo' | 'syncOffsetMs'>
+>;
+
+export const SYNC_OFFSET_LIMIT_MS = 200;
+export const SYNC_OFFSET_STEP_MS = 10;
+
+/** 보정값을 ±200ms, 10ms 단위로 맞춘다. 숫자가 아니면 0. */
+export function clampSyncOffset(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
+  const stepped = Math.round(value / SYNC_OFFSET_STEP_MS) * SYNC_OFFSET_STEP_MS;
+  return Math.max(
+    -SYNC_OFFSET_LIMIT_MS,
+    Math.min(SYNC_OFFSET_LIMIT_MS, stepped),
+  );
+}
+
+/** 저장소에서 읽은 테이크. syncOffsetMs가 없던 이전 테이크는 0으로 읽는다. */
+export function normalizeTake(
+  raw: Omit<Take, 'syncOffsetMs'> & {
+    syncOffsetMs?: unknown;
+  },
+): Take {
+  return { ...raw, syncOffsetMs: clampSyncOffset(raw.syncOffsetMs) };
+}
 
 export interface TakeGroup {
   sectionId: string;
@@ -51,10 +77,26 @@ export function groupTakes(takes: Take[], song: Song): TakeGroup[] {
   }));
 }
 
-/** 파일에서 실제로 들려줄 구간(초). 프리롤을 건너뛴다. */
-export function takeWindow(take: Pick<Take, 'offsetMs' | 'durationMs'>) {
-  const start = take.offsetMs / 1000;
-  return { start, end: start + take.durationMs / 1000 };
+/**
+ * 파일에서 들려줄 구간(초). 프리롤을 건너뛰고 싱크 보정을 반영한다.
+ * 보정으로 시작 위치가 파일 앞을 넘어가면 0에서 시작하고, 그만큼(leadMs)
+ * 재생 시작을 늦춘다.
+ */
+export function takeWindow(
+  take: Pick<Take, 'offsetMs' | 'durationMs'> & { syncOffsetMs?: number },
+) {
+  const shiftedMs = take.offsetMs - (take.syncOffsetMs ?? 0);
+  const start = Math.max(0, shiftedMs) / 1000;
+  return {
+    start,
+    end: start + take.durationMs / 1000,
+    leadMs: Math.max(0, -shiftedMs),
+  };
+}
+
+/** 반주의 첫 마디선이 들리는 시각(heardAt)에 맞추려면 지금부터 기다릴 시간. */
+export function backingStartDelayMs(heardAt: number, now: number, leadMs = 0) {
+  return Math.max(0, heardAt - now) + leadMs;
 }
 
 export function formatDuration(ms: number) {

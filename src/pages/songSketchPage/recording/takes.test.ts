@@ -5,6 +5,9 @@ import { readSongData } from '../logic/songIO';
 import {
   QUOTA_MESSAGE,
   Take,
+  backingStartDelayMs,
+  clampSyncOffset,
+  normalizeTake,
   describeStorageError,
   formatDuration,
   groupTakes,
@@ -27,6 +30,7 @@ const take = (overrides: Partial<Take>): Take => ({
   durationMs: 8000,
   offsetMs: 300,
   bpm: 110,
+  syncOffsetMs: 0,
   starred: false,
   memo: '',
   ...overrides,
@@ -67,7 +71,50 @@ describe('도우미', () => {
     expect(takeWindow({ offsetMs: 340, durationMs: 4000 })).toEqual({
       start: 0.34,
       end: 4.34,
+      leadMs: 0,
     });
+  });
+
+  it('싱크 보정: 양수면 목소리를 늦게, 음수면 앞당긴다', () => {
+    // +100ms: 파일을 100ms 앞에서 시작 → 목소리가 늦게 들린다
+    expect(
+      takeWindow({ offsetMs: 340, durationMs: 4000, syncOffsetMs: 100 }),
+    ).toEqual({ start: 0.24, end: 4.24, leadMs: 0 });
+    // -100ms: 파일을 100ms 뒤에서 시작 → 목소리가 앞당겨진다
+    expect(
+      takeWindow({ offsetMs: 340, durationMs: 4000, syncOffsetMs: -100 }),
+    ).toEqual({ start: 0.44, end: 4.44, leadMs: 0 });
+  });
+
+  it('보정이 프리롤보다 크면 파일 처음부터 틀고 재생 시작을 늦춘다', () => {
+    expect(
+      takeWindow({ offsetMs: 74, durationMs: 3000, syncOffsetMs: 200 }),
+    ).toEqual({ start: 0, end: 3, leadMs: 126 });
+  });
+
+  it('보정값은 ±200ms, 10ms 단위', () => {
+    expect(clampSyncOffset(34)).toBe(30);
+    expect(clampSyncOffset(-35)).toBe(-30);
+    expect(clampSyncOffset(500)).toBe(200);
+    expect(clampSyncOffset(-500)).toBe(-200);
+    expect(clampSyncOffset(undefined)).toBe(0);
+    expect(clampSyncOffset(Number.NaN)).toBe(0);
+  });
+
+  it('syncOffsetMs가 없던 이전 테이크는 0으로 읽는다', () => {
+    const legacy: Partial<Take> = take({});
+    delete legacy.syncOffsetMs;
+    expect(normalizeTake(legacy as Take).syncOffsetMs).toBe(0);
+    expect(
+      normalizeTake({ ...(legacy as Take), syncOffsetMs: 60 }).syncOffsetMs,
+    ).toBe(60);
+  });
+
+  it('반주와 함께: 첫 마디선이 들리는 시각까지 기다린다', () => {
+    expect(backingStartDelayMs(1250, 1000)).toBe(250);
+    // 이미 지났으면 바로 (0), 싱크 보정 리드는 더한다
+    expect(backingStartDelayMs(900, 1000)).toBe(0);
+    expect(backingStartDelayMs(1250, 1000, 126)).toBe(376);
   });
 
   it('길이 표시', () => {

@@ -12,6 +12,7 @@ import {
   Stack,
   TextField,
   Tooltip,
+  Slider,
   Typography,
 } from '@mui/material';
 import {
@@ -24,6 +25,8 @@ import {
 } from '@mui/icons-material';
 import { Song } from '../types';
 import {
+  SYNC_OFFSET_LIMIT_MS,
+  SYNC_OFFSET_STEP_MS,
   Take,
   TakePatch,
   formatDuration,
@@ -54,6 +57,45 @@ const formatTime = (time: number) =>
   });
 
 const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+
+export function syncLabel(ms: number) {
+  if (ms === 0) return '싱크 0ms';
+  return `싱크 ${ms > 0 ? '+' : ''}${ms}ms (목소리 ${ms > 0 ? '늦게' : '앞당김'})`;
+}
+
+/** 반주와 함께 들을 때 목소리 위치를 ±200ms 안에서 10ms 단위로 맞춘다. */
+function SyncOffsetSlider({
+  take,
+  onSave,
+}: {
+  take: Take;
+  onSave: (syncOffsetMs: number) => void;
+}) {
+  const [value, setValue] = useState(take.syncOffsetMs);
+  useEffect(() => setValue(take.syncOffsetMs), [take.syncOffsetMs]);
+  return (
+    <Tooltip title="반주와 함께 들을 때 목소리가 박자보다 빠르거나 느리면 조절하세요. 다음 재생부터 반영됩니다.">
+      <Box sx={{ width: 190, px: 1, flexShrink: 0 }}>
+        <Typography variant="caption" sx={{ display: 'block' }}>
+          {syncLabel(value)}
+        </Typography>
+        <Slider
+          size="small"
+          min={-SYNC_OFFSET_LIMIT_MS}
+          max={SYNC_OFFSET_LIMIT_MS}
+          step={SYNC_OFFSET_STEP_MS}
+          marks={[{ value: 0 }]}
+          value={value}
+          aria-label="싱크 보정"
+          onChange={(_, next) => setValue(next as number)}
+          onChangeCommitted={(_, next) => {
+            if (next !== take.syncOffsetMs) onSave(next as number);
+          }}
+        />
+      </Box>
+    </Tooltip>
+  );
+}
 
 function MemoField({
   take,
@@ -217,6 +259,12 @@ export default function TakesPanel({
                       </span>
                     </Tooltip>
                   </Stack>
+                  <SyncOffsetSlider
+                    take={take}
+                    onSave={(syncOffsetMs) =>
+                      onUpdate(take.id, { syncOffsetMs })
+                    }
+                  />
                   <MemoField
                     take={take}
                     onSave={(memo) => onUpdate(take.id, { memo })}

@@ -1,4 +1,4 @@
-import { Take, TakePatch } from './takes';
+import { Take, TakePatch, normalizeTake } from './takes';
 
 // 녹음 테이크(오디오 Blob) 저장소. localStorage에는 곡만 두고 오디오는 IndexedDB에 둔다.
 
@@ -52,7 +52,7 @@ export async function listTakes(songId: string): Promise<Take[]> {
   const takes = await run<Take[]>('readonly', (store) =>
     store.index('songId').getAll(songId),
   );
-  return takes ?? [];
+  return (takes ?? []).map(normalizeTake);
 }
 
 export async function saveTake(take: Take): Promise<void> {

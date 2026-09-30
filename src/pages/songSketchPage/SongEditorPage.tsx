@@ -144,6 +144,7 @@ function SongEditor({ song }: { song: Song }) {
       sectionId: target.sectionId,
       bpm: target.bpm,
       createdAt: Date.now(),
+      syncOffsetMs: 0,
       starred: false,
       memo: '',
     });
@@ -164,7 +165,7 @@ function SongEditor({ song }: { song: Song }) {
     chordVolumeDb,
     onBarStart: (measure, atMs) => {
       recorder.barStarted(measure, atMs);
-      takePlayer.barStarted(measure);
+      takePlayer.barStarted(measure, atMs);
     },
   });
 
