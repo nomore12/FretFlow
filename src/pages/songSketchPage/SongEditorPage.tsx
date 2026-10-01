@@ -37,6 +37,7 @@ import ChordSheetView, { SheetHighlight } from './components/ChordSheetView';
 import PlaybackPanel, { RecordingControls } from './components/PlaybackPanel';
 import TakesPanel from './components/TakesPanel';
 import KeyCapoCalculator from './components/KeyCapoCalculator';
+import MelodyEditor from './components/MelodyEditor';
 import { Take } from './recording/takes';
 import useTakePlayer from './recording/useTakePlayer';
 import useTakeRecorder from './recording/useTakeRecorder';
@@ -47,8 +48,8 @@ import SectionEditor from './components/SectionEditor';
 import SongSettings from './components/SongSettings';
 import './songSheet.css';
 
-type View = 'edit' | 'sheet' | 'takes';
-const VIEWS: View[] = ['edit', 'sheet', 'takes'];
+type View = 'edit' | 'melody' | 'sheet' | 'takes';
+const VIEWS: View[] = ['edit', 'melody', 'sheet', 'takes'];
 
 export function downloadSong(song: Song) {
   const blob = new Blob([serializeSong(song)], { type: 'application/json' });
@@ -100,6 +101,10 @@ function SongEditor({ song }: { song: Song }) {
   const [chordVolumeDb, setChordVolumeDb] = useState(-6);
   const [guideTone, setGuideTone] = useState(false);
   const [guideVolumeDb, setGuideVolumeDb] = useState(0);
+  const [melodyOn, setMelodyOn] = useState(true);
+  // 드럼·기타 반주를 켤지 (멜로디 탭의 "멜로디만"으로 끈다)
+  const [backingOn, setBackingOn] = useState(true);
+  const [melodyVolumeDb, setMelodyVolumeDb] = useState(0);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
   const transportRef = useRef<HTMLDivElement>(null);
   const [transportHeight, setTransportHeight] = useState(0);
@@ -178,6 +183,10 @@ function SongEditor({ song }: { song: Song }) {
     chordVolumeDb,
     guideTone,
     guideVolumeDb,
+    melody: melodyOn,
+    // 테이크를 반주와 함께 들을 때는 항상 반주를 낸다
+    backing: backingOn || backing !== null,
+    melodyVolumeDb,
     onBarStart: (measure, atMs) => {
       recorder.barStarted(measure, atMs);
       takePlayer.barStarted(measure, atMs);
@@ -353,6 +362,8 @@ function SongEditor({ song }: { song: Song }) {
               onChordVolumeChange={setChordVolumeDb}
               onGuideToneChange={setGuideTone}
               onGuideVolumeChange={setGuideVolumeDb}
+              melodyVolumeDb={melodyVolumeDb}
+              onMelodyVolumeChange={setMelodyVolumeDb}
               onStart={() => playback.start()}
               onStop={playback.stop}
             />
@@ -370,6 +381,7 @@ function SongEditor({ song }: { song: Song }) {
           sx={{ minHeight: 40, '& .MuiTab-root': { minHeight: 40, py: 1 } }}
         >
           <Tab value="edit" label="편집" />
+          <Tab value="melody" label="멜로디" />
           <Tab value="sheet" label="코드 악보" />
           <Tab
             value="takes"
@@ -381,7 +393,34 @@ function SongEditor({ song }: { song: Song }) {
           />
         </Tabs>
 
-        {view === 'takes' ? (
+        {view === 'melody' && playSectionId && song.sections[playSectionId] ? (
+          <Box className="no-print">
+            <PracticePanel dense>
+              <MelodyEditor
+                song={song}
+                section={song.sections[playSectionId]}
+                shapeKey={shape}
+                playhead={
+                  current &&
+                  current.sectionId === playSectionId &&
+                  playback.position
+                    ? {
+                        barIndex: current.barIndex,
+                        step: playback.position.step,
+                      }
+                    : null
+                }
+                backing={backingOn}
+                melodyOn={melodyOn}
+                onSectionChange={setLoopSectionId}
+                onBackingChange={setBackingOn}
+                onMelodyOnChange={setMelodyOn}
+                onUpdate={update}
+                onPreview={playback.previewMelodyNote}
+              />
+            </PracticePanel>
+          </Box>
+        ) : view === 'takes' ? (
           <Box className="no-print">
             <PracticePanel dense>
               <TakesPanel

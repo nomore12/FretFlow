@@ -259,6 +259,7 @@ interface PlaybackPanelProps {
   chordVolumeDb: number;
   guideTone: boolean;
   guideVolumeDb: number;
+  melodyVolumeDb: number;
   isBusy: boolean;
   isPlaying: boolean;
   error: string | null;
@@ -270,6 +271,7 @@ interface PlaybackPanelProps {
   onChordVolumeChange: (db: number) => void;
   onGuideToneChange: (on: boolean) => void;
   onGuideVolumeChange: (db: number) => void;
+  onMelodyVolumeChange: (db: number) => void;
   onStart: () => void;
   onStop: () => void;
 }
@@ -286,6 +288,7 @@ export default function PlaybackPanel({
   chordVolumeDb,
   guideTone,
   guideVolumeDb,
+  melodyVolumeDb,
   isBusy,
   isPlaying,
   error,
@@ -297,6 +300,7 @@ export default function PlaybackPanel({
   onChordVolumeChange,
   onGuideToneChange,
   onGuideVolumeChange,
+  onMelodyVolumeChange,
   onStart,
   onStop,
 }: PlaybackPanelProps) {
@@ -420,6 +424,11 @@ export default function PlaybackPanel({
             label="가이드 톤"
             value={guideVolumeDb}
             onChange={onGuideVolumeChange}
+          />
+          <VolumeSlider
+            label="멜로디"
+            value={melodyVolumeDb}
+            onChange={onMelodyVolumeChange}
           />
         </Stack>
       </Popover>
