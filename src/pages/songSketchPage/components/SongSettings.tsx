@@ -53,10 +53,13 @@ export default function SongSettings({ song, onChange }: SongSettingsProps) {
   ];
 
   return (
-    <Stack spacing={2}>
+    <Stack
+      spacing={1}
+      sx={{ '& .MuiInputBase-input, & .MuiSelect-select': { py: 0.75 } }}
+    >
       <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
+        direction="row"
+        spacing={1.5}
         alignItems={{ xs: 'stretch', sm: 'center' }}
         flexWrap="wrap"
         useFlexGap

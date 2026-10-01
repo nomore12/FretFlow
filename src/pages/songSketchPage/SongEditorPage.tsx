@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -47,7 +48,8 @@ import SectionEditor from './components/SectionEditor';
 import SongSettings from './components/SongSettings';
 import './songSheet.css';
 
-type View = 'edit' | 'sheet';
+type View = 'edit' | 'sheet' | 'takes';
+const VIEWS: View[] = ['edit', 'sheet', 'takes'];
 
 export function downloadSong(song: Song) {
   const blob = new Blob([serializeSong(song)], { type: 'application/json' });
@@ -89,13 +91,27 @@ function SongEditor({ song }: { song: Song }) {
   const id = song.id;
   const updateSong = useSongStore((state) => state.updateSong);
   const [searchParams, setSearchParams] = useSearchParams();
-  const view: View = searchParams.get('view') === 'sheet' ? 'sheet' : 'edit';
+  const requestedView = searchParams.get('view') as View | null;
+  const view: View =
+    requestedView && VIEWS.includes(requestedView) ? requestedView : 'edit';
   const [newKind, setNewKind] = useState<SectionKind>('verse');
   const [mode, setMode] = useState<PlaybackMode>('section');
   const [loopSectionId, setLoopSectionId] = useState<string | null>(null);
   const [drumVolumeDb, setDrumVolumeDb] = useState(-12);
   const [chordVolumeDb, setChordVolumeDb] = useState(-6);
   const [selection, setSelection] = useState<BarSelection | null>(null);
+  const transportRef = useRef<HTMLDivElement>(null);
+  const [transportHeight, setTransportHeight] = useState(0);
+  useLayoutEffect(() => {
+    const element = transportRef.current;
+    if (!element) return;
+    const measure = () => setTransportHeight(element.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const asideTop = transportHeight + 16;
   const selectBar = useCallback(
     (sectionId: string, barIndex: number) =>
       setSelection((previous) =>
@@ -134,9 +150,12 @@ function SongEditor({ song }: { song: Song }) {
 
   // 녹음 버튼을 누를 때의 섹션·템포를 테이크에 기록한다.
   const recordingFor = useRef<{ sectionId: string; bpm: number } | null>(null);
+  // 다른 탭에서 녹음한 새 테이크 수. 테이크 탭을 열면 0이 된다.
+  const [unseenTakes, setUnseenTakes] = useState(0);
   const recorder = useTakeRecorder((recorded) => {
     const target = recordingFor.current;
     if (!target) return;
+    setUnseenTakes((count) => count + 1);
     takes.add({
       ...recorded,
       id: newId(),
@@ -149,6 +168,9 @@ function SongEditor({ song }: { song: Song }) {
       memo: '',
     });
   });
+  useEffect(() => {
+    if (view === 'takes') setUnseenTakes(0);
+  }, [view, unseenTakes]);
   const takePlayer = useTakePlayer((endedMode) => {
     if (endedMode === 'backing') {
       playback.stop();
@@ -247,10 +269,10 @@ function SongEditor({ song }: { song: Song }) {
   return (
     <Container
       maxWidth="xl"
-      sx={{ py: 4, textAlign: 'left' }}
+      sx={{ py: 2, textAlign: 'left' }}
       className="song-print-root"
     >
-      <Stack spacing={3} sx={{ maxWidth: 1200, mx: 'auto', minWidth: 0 }}>
+      <Stack spacing={2} sx={{ maxWidth: 1200, mx: 'auto', minWidth: 0 }}>
         <Stack
           className="no-print"
           direction="row"
@@ -259,22 +281,29 @@ function SongEditor({ song }: { song: Song }) {
           flexWrap="wrap"
           useFlexGap
         >
-          <Button component={Link} to="/songs" startIcon={<ArrowBack />}>
+          <Button
+            size="small"
+            component={Link}
+            to="/songs"
+            startIcon={<ArrowBack />}
+          >
             곡 목록
           </Button>
           <Typography
-            variant="h4"
+            variant="h5"
             component="h1"
+            noWrap
             sx={{
               flex: 1,
-              fontWeight: 600,
-              fontSize: { xs: '1.5rem', sm: '2rem' },
+              fontWeight: 700,
+              fontSize: { xs: '1.15rem', sm: '1.5rem' },
               minWidth: 0,
             }}
           >
             {song.title}
           </Typography>
           <Button
+            size="small"
             startIcon={<FileDownload />}
             onClick={() => downloadSong(song)}
           >
@@ -282,8 +311,13 @@ function SongEditor({ song }: { song: Song }) {
           </Button>
         </Stack>
 
-        <Box className="no-print">
-          <PracticePanel controls countdown={playback.countdown}>
+        {/* 재생 바는 스크롤해도 위에 붙어 있어 편집하면서 바로 재생·녹음할 수 있다. */}
+        <Box
+          ref={transportRef}
+          className="no-print"
+          sx={{ position: 'sticky', top: 8, zIndex: 10 }}
+        >
+          <PracticePanel controls dense countdown={playback.countdown}>
             <PlaybackPanel
               song={song}
               shapeKey={shape}
@@ -309,38 +343,47 @@ function SongEditor({ song }: { song: Song }) {
           </PracticePanel>
         </Box>
 
-        <Box className="no-print">
-          <PracticePanel>
-            <TakesPanel
-              song={song}
-              takes={takes.takes}
-              error={takes.error}
-              usage={takes.usage}
-              playingId={takePlayer.playingId}
-              playingMode={takePlayer.playingMode}
-              onPlay={playTake}
-              onStop={stopTake}
-              onUpdate={takes.update}
-              onDelete={takes.remove}
-              onClearError={takes.clearError}
-            />
-          </PracticePanel>
-        </Box>
-
         <Tabs
           className="no-print"
           value={view}
           onChange={(_, value: View) =>
-            setSearchParams(value === 'sheet' ? { view: 'sheet' } : {}, {
+            setSearchParams(value === 'edit' ? {} : { view: value }, {
               replace: true,
             })
           }
+          sx={{ minHeight: 40, '& .MuiTab-root': { minHeight: 40, py: 1 } }}
         >
           <Tab value="edit" label="편집" />
           <Tab value="sheet" label="코드 악보" />
+          <Tab
+            value="takes"
+            label={
+              unseenTakes > 0
+                ? `테이크 ${takes.takes.length} · 새 ${unseenTakes}`
+                : `테이크 ${takes.takes.length}`
+            }
+          />
         </Tabs>
 
-        {view === 'sheet' ? (
+        {view === 'takes' ? (
+          <Box className="no-print">
+            <PracticePanel dense>
+              <TakesPanel
+                song={song}
+                takes={takes.takes}
+                error={takes.error}
+                usage={takes.usage}
+                playingId={takePlayer.playingId}
+                playingMode={takePlayer.playingMode}
+                onPlay={playTake}
+                onStop={stopTake}
+                onUpdate={takes.update}
+                onDelete={takes.remove}
+                onClearError={takes.clearError}
+              />
+            </PracticePanel>
+          </Box>
+        ) : view === 'sheet' ? (
           <Paper
             elevation={3}
             sx={{ p: { xs: 2, sm: 4 }, borderRadius: 3, minWidth: 0 }}
@@ -355,27 +398,24 @@ function SongEditor({ song }: { song: Song }) {
                 xs: 'minmax(0, 1fr)',
                 lg: 'minmax(0, 1fr) 360px',
               },
-              gap: 3,
+              gap: 2,
               alignItems: 'start',
             }}
           >
-            <Stack spacing={3} sx={{ minWidth: 0 }}>
-              <PracticePanel controls>
-                <SongSettings
-                  song={song}
-                  onChange={(patch) => update((s) => ({ ...s, ...patch }))}
-                />
-              </PracticePanel>
-
-              <PracticePanel>
-                <Typography variant="h6" gutterBottom>
-                  재생 순서
-                </Typography>
-                <OrderEditor song={song} onUpdate={update} />
+            <Stack spacing={2} sx={{ minWidth: 0 }}>
+              {/* 곡 설정과 재생 순서를 한 패널에 모은다. */}
+              <PracticePanel controls dense>
+                <Stack spacing={1.5}>
+                  <SongSettings
+                    song={song}
+                    onChange={(patch) => update((s) => ({ ...s, ...patch }))}
+                  />
+                  <OrderEditor song={song} onUpdate={update} />
+                </Stack>
               </PracticePanel>
 
               {sectionsInDisplayOrder(song).map((section) => (
-                <PracticePanel key={section.id}>
+                <PracticePanel key={section.id} dense>
                   <SectionEditor
                     section={section}
                     shapeKey={shape}
@@ -435,12 +475,13 @@ function SongEditor({ song }: { song: Song }) {
               sx={{
                 minWidth: 0,
                 position: { lg: 'sticky' },
-                top: { lg: 16 },
-                maxHeight: { lg: 'calc(100vh - 32px)' },
+                // 위에 붙은 재생 바 아래에 자리 잡는다.
+                top: { lg: asideTop },
+                maxHeight: { lg: `calc(100vh - ${asideTop + 16}px)` },
                 overflowY: { lg: 'auto' },
               }}
             >
-              <PracticePanel>
+              <PracticePanel dense>
                 <AssistPanel
                   song={song}
                   shapeKey={shape}

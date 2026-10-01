@@ -1,28 +1,39 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   Box,
   Button,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
+  Popover,
   Select,
   Slider,
   Stack,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import { FiberManualRecord, PlayArrow, Stop } from '@mui/icons-material';
+import {
+  FiberManualRecord,
+  PlayArrow,
+  Stop,
+  VolumeUp,
+} from '@mui/icons-material';
 import { SongKey } from '../../../utils/pitch';
 import { Song } from '../types';
-import { chordLabel } from '../logic/chordSheet';
+import { NO_CHORD, SPOKEN_MARK, chordLabel } from '../logic/chordSheet';
 import { TimelineBar } from '../logic/timeline';
 import { PlaybackMode, VOLUME_MIN_DB } from '../useSongPlayback';
 import { RecorderStatus } from '../recording/TakeRecorder';
 import { ChordShape } from './ChordPicker';
 
 const VOLUME_MAX_DB = 0;
+// 재생 전후로 높이가 바뀌어 아래 편집기가 밀리지 않도록 지금 연주 줄의 높이를 고정한다.
+const NOW_PLAYING_HEIGHT = 72;
+const MINI_SHAPE_SCALE = 0.45;
 
 export interface RecordingControls {
   status: RecorderStatus;
@@ -43,65 +54,168 @@ const RECORD_STATUS_TEXT: Record<RecorderStatus, string> = {
   saving: '저장 중…',
 };
 
-function RecordControls({ recording }: { recording: RecordingControls }) {
+function RecordButton({ recording }: { recording: RecordingControls }) {
   const { status, supported, blockedReason } = recording;
   const active = status !== 'idle';
+  const hint = active
+    ? RECORD_STATUS_TEXT[status]
+    : !supported
+      ? '이 브라우저는 녹음을 지원하지 않습니다.'
+      : blockedReason ?? '버튼을 누른 뒤 오는 첫 마디가 테이크의 시작입니다.';
+
   return (
-    <Stack spacing={1}>
-      <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-        {active ? (
-          <Button
-            variant="contained"
-            color="error"
-            startIcon={<Stop />}
-            disabled={status === 'finishing' || status === 'saving'}
-            onClick={recording.onStopRecord}
-          >
-            녹음 정지
-          </Button>
-        ) : (
-          <Button
-            variant="outlined"
-            color="inherit"
-            startIcon={<FiberManualRecord sx={{ color: '#ff5a5f' }} />}
-            disabled={!supported || blockedReason !== null}
-            onClick={recording.onRecord}
-          >
-            녹음
-          </Button>
-        )}
-        <Typography
-          variant="body2"
+    <Stack
+      direction="row"
+      spacing={1}
+      alignItems="center"
+      sx={{ minWidth: 0, flex: '1 1 220px' }}
+    >
+      {active ? (
+        <Button
+          size="small"
+          variant="contained"
+          color="error"
+          startIcon={<Stop />}
+          disabled={status === 'finishing' || status === 'saving'}
+          onClick={recording.onStopRecord}
+          sx={{ flexShrink: 0 }}
+        >
+          녹음 정지
+        </Button>
+      ) : (
+        <Button
+          size="small"
+          variant="outlined"
+          color="inherit"
+          startIcon={<FiberManualRecord sx={{ color: '#ff5a5f' }} />}
+          disabled={!supported || blockedReason !== null}
+          onClick={recording.onRecord}
+          sx={{ flexShrink: 0 }}
+        >
+          녹음
+        </Button>
+      )}
+      {status === 'recording' && (
+        <FiberManualRecord
+          fontSize="small"
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
+            color: '#ff5a5f',
+            animation: 'songRecBlink 1s steps(2) infinite',
+            '@keyframes songRecBlink': { '50%': { opacity: 0.2 } },
+          }}
+        />
+      )}
+      <Tooltip title={hint}>
+        <Typography
+          variant="caption"
+          noWrap
+          sx={{
+            minWidth: 0,
+            opacity: active ? 1 : 0.85,
             fontWeight: status === 'recording' ? 700 : 400,
           }}
         >
-          {status === 'recording' && (
-            <FiberManualRecord
-              fontSize="small"
-              sx={{
-                color: '#ff5a5f',
-                animation: 'songRecBlink 1s steps(2) infinite',
-                '@keyframes songRecBlink': { '50%': { opacity: 0.2 } },
-              }}
-            />
-          )}
-          {active
-            ? RECORD_STATUS_TEXT[status]
-            : !supported
-              ? '이 브라우저는 녹음을 지원하지 않습니다.'
-              : blockedReason ??
-                '버튼을 누른 뒤 오는 첫 마디가 테이크의 시작입니다.'}
+          {hint}
         </Typography>
-      </Stack>
-      {recording.error && (
-        <Alert severity="error" onClose={recording.onClearError}>
-          {recording.error}
-        </Alert>
+      </Tooltip>
+    </Stack>
+  );
+}
+
+function VolumeSlider({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (db: number) => void;
+}) {
+  return (
+    <Box>
+      <Typography variant="caption">
+        {label} {value <= VOLUME_MIN_DB ? '꺼짐' : `${value} dB`}
+      </Typography>
+      <Slider
+        size="small"
+        min={VOLUME_MIN_DB}
+        max={VOLUME_MAX_DB}
+        value={value}
+        onChange={(_, db) => onChange(db as number)}
+        aria-label={`${label} 음량`}
+      />
+    </Box>
+  );
+}
+
+/** 지금(또는 다음) 마디의 코드와 가사. 말로 하는 마디는 코드 대신 (말로). */
+function BarLine({
+  song,
+  shapeKey,
+  bar,
+  label,
+  emphasis,
+}: {
+  song: Song;
+  shapeKey: SongKey;
+  bar: TimelineBar;
+  label: string;
+  emphasis: boolean;
+}) {
+  const chord = bar.bar.spoken
+    ? SPOKEN_MARK
+    : chordLabel(bar.bar.chord, shapeKey);
+  const lyric = bar.bar.lyric ?? '';
+  const showShape = emphasis && !bar.bar.spoken && chord !== NO_CHORD;
+  return (
+    <Stack
+      direction="row"
+      spacing={1.5}
+      useFlexGap
+      alignItems="center"
+      sx={{ minWidth: 0, opacity: emphasis ? 1 : 0.75 }}
+    >
+      {showShape && (
+        <Box
+          sx={{
+            display: { xs: 'none', sm: 'block' },
+            bgcolor: 'white',
+            borderRadius: 1,
+          }}
+        >
+          <ChordShape name={chord} scale={MINI_SHAPE_SCALE} focused />
+        </Box>
       )}
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="caption" noWrap sx={{ display: 'block' }}>
+          {label} · {song.sections[bar.sectionId]?.name} {bar.barIndex + 1}마디
+        </Typography>
+        <Stack direction="row" spacing={1.5} alignItems="baseline">
+          <Typography
+            noWrap
+            sx={{
+              fontWeight: 800,
+              fontSize: emphasis ? '1.5rem' : '1.1rem',
+              lineHeight: 1.2,
+              flexShrink: 0,
+              fontStyle: bar.bar.spoken ? 'italic' : 'normal',
+            }}
+          >
+            {chord}
+          </Typography>
+          <Typography
+            noWrap
+            sx={{
+              minWidth: 0,
+              fontSize: emphasis ? '1.15rem' : '0.95rem',
+              fontWeight: emphasis ? 600 : 400,
+              fontStyle: bar.bar.spoken ? 'italic' : 'normal',
+            }}
+          >
+            {lyric || ' '}
+          </Typography>
+        </Stack>
+      </Box>
     </Stack>
   );
 }
@@ -129,32 +243,6 @@ interface PlaybackPanelProps {
   onStop: () => void;
 }
 
-function VolumeSlider({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (db: number) => void;
-}) {
-  return (
-    <Box sx={{ minWidth: 160, flex: 1 }}>
-      <Typography variant="caption">
-        {label} {value <= VOLUME_MIN_DB ? '꺼짐' : `${value} dB`}
-      </Typography>
-      <Slider
-        size="small"
-        min={VOLUME_MIN_DB}
-        max={VOLUME_MAX_DB}
-        value={value}
-        onChange={(_, db) => onChange(db as number)}
-        aria-label={`${label} 음량`}
-      />
-    </Box>
-  );
-}
-
 export default function PlaybackPanel({
   song,
   shapeKey,
@@ -178,16 +266,19 @@ export default function PlaybackPanel({
   onStop,
 }: PlaybackPanelProps) {
   const sections = Object.values(song.sections);
-  const currentSection = current ? song.sections[current.sectionId] : null;
+  const [volumeAnchor, setVolumeAnchor] = useState<HTMLElement | null>(null);
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={1}>
       <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={2}
-        alignItems={{ xs: 'stretch', md: 'center' }}
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        flexWrap="wrap"
+        useFlexGap
       >
         <Button
+          size="small"
           variant="contained"
           color={isBusy ? 'error' : 'inherit'}
           startIcon={isBusy ? <Stop /> : <PlayArrow />}
@@ -206,6 +297,7 @@ export default function PlaybackPanel({
           }}
           sx={{
             '& .MuiToggleButton-root': {
+              py: 0.25,
               color: 'rgba(255,255,255,.8)',
               borderColor: 'rgba(255,255,255,.4)',
             },
@@ -219,7 +311,7 @@ export default function PlaybackPanel({
           <ToggleButton value="song">곡 전체</ToggleButton>
         </ToggleButtonGroup>
         {mode === 'section' && (
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
             <InputLabel id="loop-section">반복할 섹션</InputLabel>
             <Select
               labelId="loop-section"
@@ -227,6 +319,7 @@ export default function PlaybackPanel({
               disabled={locked}
               value={sectionId ?? ''}
               onChange={(event) => onSectionChange(event.target.value)}
+              sx={{ '& .MuiSelect-select': { py: 0.75 } }}
             >
               {sections.map((section) => (
                 <MenuItem key={section.id} value={section.id}>
@@ -236,67 +329,92 @@ export default function PlaybackPanel({
             </Select>
           </FormControl>
         )}
-        <Typography variant="body2">{bpm} BPM</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {bpm} BPM
+        </Typography>
+        <Tooltip title="드럼·코드 음량">
+          <IconButton
+            size="small"
+            color="inherit"
+            aria-label="음량"
+            onClick={(event) => setVolumeAnchor(event.currentTarget)}
+          >
+            <VolumeUp fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <RecordButton recording={recording} />
       </Stack>
 
-      <RecordControls recording={recording} />
-
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
-        <VolumeSlider
-          label="드럼"
-          value={drumVolumeDb}
-          onChange={onDrumVolumeChange}
-        />
-        <VolumeSlider
-          label="코드"
-          value={chordVolumeDb}
-          onChange={onChordVolumeChange}
-        />
-      </Stack>
+      <Popover
+        open={volumeAnchor !== null}
+        anchorEl={volumeAnchor}
+        onClose={() => setVolumeAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        <Stack spacing={1} sx={{ p: 2, width: 240 }}>
+          <VolumeSlider
+            label="드럼"
+            value={drumVolumeDb}
+            onChange={onDrumVolumeChange}
+          />
+          <VolumeSlider
+            label="코드"
+            value={chordVolumeDb}
+            onChange={onChordVolumeChange}
+          />
+        </Stack>
+      </Popover>
 
       {error && <Alert severity="error">{error}</Alert>}
+      {recording.error && (
+        <Alert severity="error" onClose={recording.onClearError}>
+          {recording.error}
+        </Alert>
+      )}
 
-      {/* 재생 전후로 높이가 바뀌어 아래 편집기가 밀리지 않도록 자리를 항상 둔다. */}
-      <Stack
-        direction="row"
-        spacing={2}
-        alignItems="center"
-        sx={{ minHeight: 132 }}
+      <Box
+        sx={{
+          height: { xs: 'auto', sm: NOW_PLAYING_HEIGHT },
+          minHeight: { xs: 56 },
+          display: 'grid',
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: '3fr 2fr' },
+          alignItems: 'center',
+          gap: { xs: 0.5, sm: 2 },
+          px: 1.5,
+          py: 0.5,
+          borderRadius: 2,
+          bgcolor: 'rgba(255,255,255,.12)',
+        }}
       >
-        {isPlaying && current && currentSection ? (
+        {isPlaying && current ? (
           <>
-            <Box>
-              <Typography variant="caption" sx={{ display: 'block' }}>
-                지금 · {currentSection.name} {current.barIndex + 1}마디
+            <BarLine
+              song={song}
+              shapeKey={shapeKey}
+              bar={current}
+              label="지금"
+              emphasis
+            />
+            {next ? (
+              <BarLine
+                song={song}
+                shapeKey={shapeKey}
+                bar={next}
+                label="다음"
+                emphasis={false}
+              />
+            ) : (
+              <Typography variant="caption" sx={{ opacity: 0.75 }}>
+                마지막 마디입니다
               </Typography>
-              {current.bar.spoken ? (
-                <Typography fontStyle="italic">(말로)</Typography>
-              ) : (
-                <ChordShape
-                  name={chordLabel(current.bar.chord, shapeKey)}
-                  focused
-                />
-              )}
-            </Box>
-            {next && (
-              <Box sx={{ opacity: 0.75 }}>
-                <Typography variant="caption" sx={{ display: 'block' }}>
-                  다음
-                </Typography>
-                {next.bar.spoken ? (
-                  <Typography fontStyle="italic">(말로)</Typography>
-                ) : (
-                  <ChordShape name={chordLabel(next.bar.chord, shapeKey)} />
-                )}
-              </Box>
             )}
           </>
         ) : (
-          <Typography variant="body2" sx={{ opacity: 0.8 }}>
-            재생하면 지금 칠 코드와 다음 코드가 여기에 나옵니다.
+          <Typography variant="body2" sx={{ opacity: 0.85 }}>
+            재생하면 지금 칠 코드와 가사, 다음 마디가 여기에 나옵니다.
           </Typography>
         )}
-      </Stack>
+      </Box>
     </Stack>
   );
 }

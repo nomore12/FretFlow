@@ -63,12 +63,18 @@ const sameChord = (a: SongChord | null, b: SongChord | null) =>
     (a.accidental ?? 0) === (b.accidental ?? 0));
 
 /** 코드 이름 옆에 작은 운지 다이어그램. 운지 데이터가 없으면 이름만. */
+// ChordDisplay 원래 크기 (px)
+const SHAPE_WIDTH = 108;
+const SHAPE_HEIGHT = 154;
+
 export function ChordShape({
   name,
   focused = false,
+  scale = 0.7,
 }: {
   name: string;
   focused?: boolean;
+  scale?: number;
 }) {
   const data = useMemo(
     () =>
@@ -80,13 +86,13 @@ export function ChordShape({
   return (
     <Box
       sx={{
-        width: 76,
-        height: 108,
+        width: Math.round(SHAPE_WIDTH * scale),
+        height: Math.round(SHAPE_HEIGHT * scale),
         overflow: 'hidden',
         flexShrink: 0,
         '& > div': {
-          width: 108,
-          transform: 'scale(0.7)',
+          width: SHAPE_WIDTH,
+          transform: `scale(${scale})`,
           transformOrigin: 'top left',
         },
       }}

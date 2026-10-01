@@ -35,20 +35,23 @@ export function PracticePage({
 
 export function PracticePanel({
   controls = false,
+  dense = false,
   countdown = null,
   children,
 }: {
   controls?: boolean;
+  dense?: boolean; // 여백을 줄여 한 화면에 더 많이 보이게 한다
   countdown?: number | null;
   children: ReactNode;
 }) {
+  const padding = dense ? { xs: 1.5, sm: 2 } : { xs: 2, sm: 3, md: 4 };
   return (
     <Card
       elevation={3}
       sx={{
         width: '100%',
         minWidth: 0,
-        borderRadius: 3,
+        borderRadius: dense ? 2 : 3,
         background: controls
           ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
           : 'linear-gradient(135deg, #dfdfdf 0%, #e4e4e4 100%)',
@@ -80,8 +83,8 @@ export function PracticePanel({
       <CardContent
         sx={{
           position: 'relative',
-          p: { xs: 2, sm: 3, md: 4 },
-          '&:last-child': { pb: { xs: 2, sm: 3, md: 4 } },
+          p: padding,
+          '&:last-child': { pb: padding },
         }}
       >
         <CountdownOverlay countdown={countdown} />
