@@ -78,4 +78,14 @@ export const SONG_VOICES: MetronomeOptions['voices'] = {
       volume: -8,
     },
   },
+  // 가이드 톤: 기타와 섞이지 않게 부드럽게 시작해 마디 동안 은은하게 남는 단음.
+  guide: {
+    kind: 'poly',
+    maxPolyphony: 4,
+    options: {
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.03, decay: 0.4, sustain: 0.5, release: 0.4 },
+      volume: -6,
+    },
+  },
 };

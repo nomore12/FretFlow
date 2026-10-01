@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import sampleSongs from '../../../data/sampleSongs.json';
 import { ShapeLookup } from '../../../utils/voicing';
 import { Song } from '../types';
-import { GUITAR_VOICE, buildPlaybackBars, notesAtStep } from './playback';
+import {
+  GUIDE_VOICE,
+  GUITAR_VOICE,
+  buildPlaybackBars,
+  notesAtStep,
+} from './playback';
 import { materializeSong } from './songEdits';
 import { readSongData } from './songIO';
 import { buildSectionTimeline } from './timeline';
@@ -37,7 +42,7 @@ describe('마디 → 재생 음', () => {
   });
 
   it('N.C.(말로 아님)는 드럼만 친다', () => {
-    const nc = { spoken: false, strums: [] };
+    const nc = { spoken: false, strums: [], guide: null };
     expect(notesAtStep(nc, 0).map((note) => note.voice)).toEqual(['kick']);
   });
 
@@ -74,5 +79,38 @@ describe('마디 → 재생 음', () => {
       .map((note) => note.pitch);
     // Em 모양 + 2 = F#m
     expect(pitches).toEqual(['F#2', 'C#3', 'F#3', 'A3', 'C#4', 'F#4']);
+  });
+});
+
+describe('가이드 톤 재생', () => {
+  const song = sample();
+  const chorus = buildPlaybackBars(
+    song,
+    buildSectionTimeline(song, 'chorus'),
+    noShapes,
+  );
+  const guideNotes = (bar: (typeof chorus)[number], step: number, on = true) =>
+    notesAtStep(bar, step, { guideTone: on }).filter(
+      (note) => note.voice === GUIDE_VOICE,
+    );
+
+  it('켜면 마디 첫 박에만 한 마디 길이로 울린다', () => {
+    // 후렴 1마디 Em (G 키) → 3음 G, 가운데 음역 G4
+    expect(guideNotes(chorus[0], 0)).toEqual([
+      expect.objectContaining({ pitch: 'G4', durationBeats: 4 }),
+    ]);
+    expect(guideNotes(chorus[0], 1)).toEqual([]);
+  });
+
+  it('끄면 울리지 않는다 (기본값)', () => {
+    expect(guideNotes(chorus[0], 0, false)).toEqual([]);
+    expect(
+      notesAtStep(chorus[0], 0).some((note) => note.voice === GUIDE_VOICE),
+    ).toBe(false);
+  });
+
+  it('말로 마디와 N.C. 마디는 울리지 않는다', () => {
+    expect(chorus[4].guide).toBeNull();
+    expect(guideNotes(chorus[4], 0)).toEqual([]);
   });
 });

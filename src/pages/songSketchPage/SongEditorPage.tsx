@@ -99,6 +99,8 @@ function SongEditor({ song }: { song: Song }) {
   const [loopSectionId, setLoopSectionId] = useState<string | null>(null);
   const [drumVolumeDb, setDrumVolumeDb] = useState(-12);
   const [chordVolumeDb, setChordVolumeDb] = useState(-6);
+  const [guideTone, setGuideTone] = useState(false);
+  const [guideVolumeDb, setGuideVolumeDb] = useState(-6);
   const [selection, setSelection] = useState<BarSelection | null>(null);
   const transportRef = useRef<HTMLDivElement>(null);
   const [transportHeight, setTransportHeight] = useState(0);
@@ -185,6 +187,8 @@ function SongEditor({ song }: { song: Song }) {
     bpm,
     drumVolumeDb,
     chordVolumeDb,
+    guideTone,
+    guideVolumeDb,
     onBarStart: (measure, atMs) => {
       recorder.barStarted(measure, atMs);
       takePlayer.barStarted(measure, atMs);
@@ -328,6 +332,8 @@ function SongEditor({ song }: { song: Song }) {
               recording={recording}
               drumVolumeDb={drumVolumeDb}
               chordVolumeDb={chordVolumeDb}
+              guideTone={guideTone}
+              guideVolumeDb={guideVolumeDb}
               isBusy={playback.isBusy}
               isPlaying={playback.isPlaying}
               error={playback.error}
@@ -337,6 +343,8 @@ function SongEditor({ song }: { song: Song }) {
               onSectionChange={setLoopSectionId}
               onDrumVolumeChange={setDrumVolumeDb}
               onChordVolumeChange={setChordVolumeDb}
+              onGuideToneChange={setGuideTone}
+              onGuideVolumeChange={setGuideVolumeDb}
               onStart={() => playback.start()}
               onStop={playback.stop}
             />

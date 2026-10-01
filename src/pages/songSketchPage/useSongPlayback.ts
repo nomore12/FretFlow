@@ -10,6 +10,7 @@ import { ChordShapeData, ShapeLookup } from '../../utils/voicing';
 import { Song } from './types';
 import {
   DRUM_VOICE_NAMES,
+  GUIDE_VOICE,
   GUITAR_VOICE,
   STEPS_PER_BEAT,
   buildPlaybackBars,
@@ -59,6 +60,8 @@ interface SongPlaybackOptions {
   sectionId: string | null; // 섹션 반복일 때
   drumVolumeDb: number;
   chordVolumeDb: number;
+  guideTone?: boolean; // 마디 첫 박에 코드의 3음을 함께 울린다
+  guideVolumeDb?: number;
   bpm?: number; // 테이크를 녹음 당시 템포로 반주할 때
   // 마디가 시작될 때 (첫 마디 포함). heardAt은 그 마디선이 들리는 performance.now() 시각.
   onBarStart?: (measure: number, heardAt: number) => void;
@@ -71,6 +74,8 @@ export default function useSongPlayback({
   sectionId,
   drumVolumeDb,
   chordVolumeDb,
+  guideTone = false,
+  guideVolumeDb = 0,
   bpm = song.bpm,
   onBarStart,
 }: SongPlaybackOptions) {
@@ -93,8 +98,9 @@ export default function useSongPlayback({
         DRUM_VOICE_NAMES.map((name) => [name, toGainDb(drumVolumeDb)]),
       ),
       [GUITAR_VOICE]: toGainDb(chordVolumeDb),
+      [GUIDE_VOICE]: toGainDb(guideVolumeDb),
     }),
-    [drumVolumeDb, chordVolumeDb],
+    [drumVolumeDb, chordVolumeDb, guideVolumeDb],
   );
 
   const playback = useMetronome({
@@ -108,7 +114,7 @@ export default function useSongPlayback({
     getNote: ({ measure, step }) => {
       if (bars.length === 0) return null;
       if (mode === 'song' && measure >= bars.length) return null;
-      return notesAtStep(bars[measure % bars.length], step);
+      return notesAtStep(bars[measure % bars.length], step, { guideTone });
     },
     onTick: ({ measure, step }, time) => {
       if (step === 0) onBarStart?.(measure, heardAtMs(time));

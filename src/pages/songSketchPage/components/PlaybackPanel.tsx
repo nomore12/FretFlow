@@ -230,6 +230,8 @@ interface PlaybackPanelProps {
   recording: RecordingControls;
   drumVolumeDb: number;
   chordVolumeDb: number;
+  guideTone: boolean;
+  guideVolumeDb: number;
   isBusy: boolean;
   isPlaying: boolean;
   error: string | null;
@@ -239,6 +241,8 @@ interface PlaybackPanelProps {
   onSectionChange: (sectionId: string) => void;
   onDrumVolumeChange: (db: number) => void;
   onChordVolumeChange: (db: number) => void;
+  onGuideToneChange: (on: boolean) => void;
+  onGuideVolumeChange: (db: number) => void;
   onStart: () => void;
   onStop: () => void;
 }
@@ -253,6 +257,8 @@ export default function PlaybackPanel({
   recording,
   drumVolumeDb,
   chordVolumeDb,
+  guideTone,
+  guideVolumeDb,
   isBusy,
   isPlaying,
   error,
@@ -262,6 +268,8 @@ export default function PlaybackPanel({
   onSectionChange,
   onDrumVolumeChange,
   onChordVolumeChange,
+  onGuideToneChange,
+  onGuideVolumeChange,
   onStart,
   onStop,
 }: PlaybackPanelProps) {
@@ -332,7 +340,26 @@ export default function PlaybackPanel({
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {bpm} BPM
         </Typography>
-        <Tooltip title="드럼·코드 음량">
+        <Tooltip title="마디 첫 박에 코드의 3음을 함께 울려 흥얼거릴 음을 잡게 도와줍니다.">
+          <ToggleButton
+            size="small"
+            value="guide"
+            selected={guideTone}
+            onChange={() => onGuideToneChange(!guideTone)}
+            sx={{
+              py: 0.25,
+              color: 'rgba(255,255,255,.8)',
+              borderColor: 'rgba(255,255,255,.4)',
+              '&.Mui-selected, &.Mui-selected:hover': {
+                color: 'white',
+                bgcolor: 'rgba(255,255,255,.25)',
+              },
+            }}
+          >
+            가이드 톤
+          </ToggleButton>
+        </Tooltip>
+        <Tooltip title="드럼·코드·가이드 톤 음량">
           <IconButton
             size="small"
             color="inherit"
@@ -361,6 +388,11 @@ export default function PlaybackPanel({
             label="코드"
             value={chordVolumeDb}
             onChange={onChordVolumeChange}
+          />
+          <VolumeSlider
+            label="가이드 톤"
+            value={guideVolumeDb}
+            onChange={onGuideVolumeChange}
           />
         </Stack>
       </Popover>
