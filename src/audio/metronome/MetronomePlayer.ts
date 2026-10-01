@@ -208,9 +208,13 @@ export class MetronomePlayer {
     this.notificationTimers.add(timer);
   };
 
-  private play = (note: MetronomeNote, time: number) => {
-    const voice = this.voices.get(note.voice);
-    const duration = (60 / this.bpm) * note.durationBeats;
+  private play = (
+    note: MetronomeNote,
+    time: number,
+    override?: { voice: Voice; seconds: number },
+  ) => {
+    const voice = override?.voice ?? this.voices.get(note.voice);
+    const duration = override?.seconds ?? (60 / this.bpm) * note.durationBeats;
     const at = time + (note.delaySeconds ?? 0);
     if (voice instanceof Tone.MembraneSynth) {
       voice.triggerAttackRelease(
@@ -229,6 +233,57 @@ export class MetronomePlayer {
         note.velocity,
       );
     }
+  };
+
+  private previews = new Set<{
+    voice: Voice;
+    output: Tone.Volume;
+    timer: ReturnType<typeof setTimeout>;
+  }>();
+
+  /**
+   * 음 하나를 바로 들려준다 (멜로디 음표를 찍을 때). 재생 중이 아니어도 되고,
+   * 화면을 떠나면(dispose) 남은 소리를 정리한다.
+   */
+  preview = async (voiceName: string, pitch: string, seconds: number) => {
+    const definition = this.options.voices[voiceName];
+    if (this.disposed || !definition) return;
+    try {
+      await Tone.start();
+      if (this.disposed) return;
+      const output = new Tone.Volume(
+        (this.options.volumeDb ?? 0) +
+          (this.options.voiceVolumesDb?.[voiceName] ?? 0),
+      ).toDestination();
+      const voice = this.createVoice(definition);
+      voice.connect(output);
+      this.play({ voice: voiceName, pitch, durationBeats: 0 }, Tone.now(), {
+        voice,
+        seconds,
+      });
+      const entry = {
+        voice,
+        output,
+        timer: setTimeout(
+          () => this.releasePreview(entry),
+          (seconds + 1) * 1000,
+        ),
+      };
+      this.previews.add(entry);
+    } catch (error) {
+      console.error('미리 듣기 오류:', error);
+    }
+  };
+
+  private releasePreview = (entry: {
+    voice: Voice;
+    output: Tone.Volume;
+    timer: ReturnType<typeof setTimeout>;
+  }) => {
+    clearTimeout(entry.timer);
+    entry.voice.dispose();
+    entry.output.dispose();
+    this.previews.delete(entry);
   };
 
   private releaseAudio = () => {
@@ -261,6 +316,7 @@ export class MetronomePlayer {
   dispose = () => {
     this.disposed = true;
     this.stop();
+    this.previews.forEach(this.releasePreview);
   };
 
   private fail = (error: unknown) => {

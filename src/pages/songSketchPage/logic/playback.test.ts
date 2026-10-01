@@ -5,10 +5,11 @@ import { Song } from '../types';
 import {
   GUIDE_VOICE,
   GUITAR_VOICE,
+  MELODY_VOICE,
   buildPlaybackBars,
   notesAtStep,
 } from './playback';
-import { materializeSong } from './songEdits';
+import { materializeSong, setSectionMelody } from './songEdits';
 import { readSongData } from './songIO';
 import { buildSectionTimeline } from './timeline';
 
@@ -42,12 +43,13 @@ describe('마디 → 재생 음', () => {
   });
 
   it('N.C.(말로 아님)는 드럼만 친다', () => {
-    const nc = { spoken: false, strums: [], guide: null };
+    const nc = { spoken: false, strums: [], guide: null, melody: [] };
     expect(notesAtStep(nc, 0).map((note) => note.voice)).toEqual(['kick']);
   });
 
   it('down8 섹션은 8분마다 다운 스트로크, 줄마다 늦게 친다', () => {
-    const notes = notesAtStep(chorus[0], 1).filter(
+    // 16분 격자에서 두 번째 8분음표는 2칸
+    const notes = notesAtStep(chorus[0], 2).filter(
       (note) => note.voice === GUITAR_VOICE,
     );
     // Em(E형 폴백): E2 B2 E3 G3 B3 E4
@@ -112,5 +114,53 @@ describe('가이드 톤 재생', () => {
   it('말로 마디와 N.C. 마디는 울리지 않는다', () => {
     expect(chorus[4].guide).toBeNull();
     expect(guideNotes(chorus[4], 0)).toEqual([]);
+  });
+});
+
+describe('멜로디 재생 (16분 격자)', () => {
+  // A 키(카포 2)의 인트로: 1마디 3칸에 3도, 2마디 0칸에 5도
+  const song = setSectionMelody(
+    { ...sample(), key: { tonic: 'A', mode: 'major' as const }, capo: 2 },
+    'intro',
+    [
+      { bar: 0, step: 3, length: 2, degree: 3, octave: 0 },
+      { bar: 1, step: 0, length: 4, degree: 5, octave: 0 },
+    ],
+  );
+  const bars = buildPlaybackBars(
+    song,
+    buildSectionTimeline(song, 'intro'),
+    noShapes,
+  );
+  const melodyAt = (bar: (typeof bars)[number], step: number, options = {}) =>
+    notesAtStep(bar, step, options).filter(
+      (note) => note.voice === MELODY_VOICE,
+    );
+
+  it('음표의 칸에서 실제로 들리는 키의 음을 길이만큼 울린다', () => {
+    expect(melodyAt(bars[0], 3)).toEqual([
+      expect.objectContaining({ pitch: 'C#4', durationBeats: 0.5 }),
+    ]);
+    expect(melodyAt(bars[1], 0)).toEqual([
+      expect.objectContaining({ pitch: 'E4', durationBeats: 1 }),
+    ]);
+    expect(melodyAt(bars[0], 2)).toEqual([]);
+  });
+
+  it('드럼·스트럼은 짝수 칸(8분)에만', () => {
+    const voices = (step: number) =>
+      notesAtStep(bars[0], step).map((n) => n.voice);
+    expect(voices(0)).toContain('kick');
+    expect(voices(1)).toEqual([]);
+    expect(voices(3)).toEqual([MELODY_VOICE]);
+  });
+
+  it('멜로디만: 반주를 끄면 드럼·기타는 빠진다', () => {
+    const notes = notesAtStep(bars[1], 0, { backing: false });
+    expect(notes.map((n) => n.voice)).toEqual([MELODY_VOICE]);
+  });
+
+  it('멜로디를 끄면 반주만', () => {
+    expect(melodyAt(bars[1], 0, { melody: false })).toEqual([]);
   });
 });

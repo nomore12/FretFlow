@@ -89,4 +89,14 @@ export const SONG_VOICES: MetronomeOptions['voices'] = {
       volume: -6,
     },
   },
+  // 멜로디: 노래 대신 부르는 소리. 기타·가이드 톤과 구분되는 또렷한 사각파.
+  melody: {
+    kind: 'poly',
+    maxPolyphony: 4,
+    options: {
+      oscillator: { type: 'square' },
+      envelope: { attack: 0.01, decay: 0.1, sustain: 0.7, release: 0.12 },
+      volume: -16,
+    },
+  },
 };

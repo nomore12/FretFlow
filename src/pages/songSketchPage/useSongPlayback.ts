@@ -6,12 +6,17 @@ import {
   DifficultyLevel,
   getChordData,
 } from '../../utils/chordProgressionGenerator';
-import { ChordShapeData, ShapeLookup } from '../../utils/voicing';
+import {
+  ChordShapeData,
+  ShapeLookup,
+  midiToNoteName,
+} from '../../utils/voicing';
 import { Song } from './types';
 import {
   DRUM_VOICE_NAMES,
   GUIDE_VOICE,
   GUITAR_VOICE,
+  MELODY_VOICE,
   STEPS_PER_BEAT,
   buildPlaybackBars,
   notesAtStep,
@@ -62,6 +67,9 @@ interface SongPlaybackOptions {
   chordVolumeDb: number;
   guideTone?: boolean; // 마디 첫 박에 코드의 3음을 함께 울린다
   guideVolumeDb?: number;
+  melody?: boolean; // 섹션 멜로디를 함께 재생
+  backing?: boolean; // 드럼·기타 반주 (끄면 멜로디만)
+  melodyVolumeDb?: number;
   bpm?: number; // 테이크를 녹음 당시 템포로 반주할 때
   // 마디가 시작될 때 (첫 마디 포함). heardAt은 그 마디선이 들리는 performance.now() 시각.
   onBarStart?: (measure: number, heardAt: number) => void;
@@ -76,6 +84,9 @@ export default function useSongPlayback({
   chordVolumeDb,
   guideTone = false,
   guideVolumeDb = 0,
+  melody = true,
+  backing = true,
+  melodyVolumeDb = 0,
   bpm = song.bpm,
   onBarStart,
 }: SongPlaybackOptions) {
@@ -99,8 +110,9 @@ export default function useSongPlayback({
       ),
       [GUITAR_VOICE]: toGainDb(chordVolumeDb),
       [GUIDE_VOICE]: toGainDb(guideVolumeDb),
+      [MELODY_VOICE]: toGainDb(melodyVolumeDb),
     }),
-    [drumVolumeDb, chordVolumeDb, guideVolumeDb],
+    [drumVolumeDb, chordVolumeDb, guideVolumeDb, melodyVolumeDb],
   );
 
   const playback = useMetronome({
@@ -114,7 +126,11 @@ export default function useSongPlayback({
     getNote: ({ measure, step }) => {
       if (bars.length === 0) return null;
       if (mode === 'song' && measure >= bars.length) return null;
-      return notesAtStep(bars[measure % bars.length], step, { guideTone });
+      return notesAtStep(bars[measure % bars.length], step, {
+        guideTone,
+        melody,
+        backing,
+      });
     },
     onTick: ({ measure, step }, time) => {
       if (step === 0) onBarStart?.(measure, heardAtMs(time));
@@ -146,5 +162,12 @@ export default function useSongPlayback({
     next,
     start: (countdownSeconds = COUNTDOWN_SECONDS) =>
       playback.start(countdownSeconds),
+    // 멜로디 음표를 찍을 때 그 음을 짧게 들려준다 (길이는 16분음표 칸 수).
+    previewMelodyNote: (midi: number, lengthSteps: number) =>
+      playback.preview(
+        MELODY_VOICE,
+        midiToNoteName(midi),
+        ((60 / bpm) * lengthSteps) / STEPS_PER_BEAT,
+      ),
   };
 }

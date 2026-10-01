@@ -463,4 +463,34 @@ describe('공통 메트로놈', () => {
       expect(output.dispose).toHaveBeenCalledOnce(),
     );
   });
+
+  it('미리 듣기는 재생 중이 아니어도 바로 울리고, 끝나거나 화면을 떠나면 정리한다', async () => {
+    const player = new MetronomePlayer(
+      options({
+        voices: { lead: { kind: 'poly' } },
+        volumeDb: -3,
+        voiceVolumesDb: { lead: -6 },
+      }),
+    );
+    await player.preview('lead', 'C#4', 0.5);
+    expect(audio.clocks).toHaveLength(0);
+    expect(audio.polys[0].triggerAttackRelease).toHaveBeenCalledWith(
+      'C#4',
+      0.5,
+      10,
+      undefined,
+    );
+    expect(audio.outputs[0].volume.value).toBe(-9);
+    // 소리가 끝난 뒤 정리
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(audio.polys[0].dispose).toHaveBeenCalledOnce();
+    expect(audio.outputs[0].dispose).toHaveBeenCalledOnce();
+
+    // 울리는 중에 화면을 떠나면 바로 정리
+    await player.preview('lead', 'E4', 2);
+    player.dispose();
+    expect(audio.polys[1].dispose).toHaveBeenCalledOnce();
+    await player.preview('lead', 'E4', 2);
+    expect(audio.polys).toHaveLength(2);
+  });
 });

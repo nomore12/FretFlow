@@ -26,6 +26,7 @@ const useMetronome = (options: MetronomeOptions) => {
     isBusy: snapshot.status !== 'stopped',
     start: player.start,
     stop: player.stop,
+    preview: player.preview,
   };
 };
 
