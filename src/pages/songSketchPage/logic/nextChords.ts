@@ -94,3 +94,19 @@ export function validateTransitions(table: TransitionTable): string[] {
   }
   return problems;
 }
+
+/**
+ * 섹션의 barIndex 마디에 어울리는 코드: 바로 앞 마디 코드 다음에 자주 오는 코드.
+ * 섹션 첫 마디이거나 앞 마디가 N.C.·말로면 곡 시작 후보를 쓴다.
+ */
+export function suggestChordsForBar(
+  bars: { chord: SongChord | null; spoken?: boolean }[],
+  barIndex: number,
+  mode: Mode,
+  table: TransitionTable = DEFAULT_TRANSITIONS,
+): { previous: SongChord | null; suggestions: ChordSuggestion[] } {
+  const previousBar = bars[barIndex - 1];
+  const previous =
+    previousBar && !previousBar.spoken ? previousBar.chord : null;
+  return { previous, suggestions: suggestNextChords(previous, mode, table) };
+}

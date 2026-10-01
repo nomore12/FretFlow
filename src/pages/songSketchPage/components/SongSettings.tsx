@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Button,
   FormControl,
   InputLabel,
   MenuItem,
@@ -20,12 +21,17 @@ import { BPM_MAX, BPM_MIN, CAPO_MAX, Song } from '../types';
 interface SongSettingsProps {
   song: Song;
   onChange: (patch: Partial<Pick<Song, 'key' | 'capo' | 'bpm'>>) => void;
+  onOpenCalculator?: () => void;
 }
 
 const clampBpm = (value: number) =>
   Math.min(BPM_MAX, Math.max(BPM_MIN, Math.round(value)));
 
-export default function SongSettings({ song, onChange }: SongSettingsProps) {
+export default function SongSettings({
+  song,
+  onChange,
+  onOpenCalculator,
+}: SongSettingsProps) {
   const [bpmText, setBpmText] = useState(String(song.bpm));
   useEffect(() => setBpmText(String(song.bpm)), [song.bpm]);
 
@@ -121,6 +127,16 @@ export default function SongSettings({ song, onChange }: SongSettingsProps) {
           inputProps={{ min: BPM_MIN, max: BPM_MAX, step: 1 }}
           sx={{ width: 110 }}
         />
+        {onOpenCalculator && (
+          <Button
+            size="small"
+            variant="outlined"
+            color="inherit"
+            onClick={onOpenCalculator}
+          >
+            키·카포 계산기
+          </Button>
+        )}
       </Stack>
       <Typography variant="body2">
         실제 키 <strong>{keyLabel(song.key)}</strong>

@@ -1,20 +1,21 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  Box,
   Button,
-  Chip,
   FormControl,
   IconButton,
   InputLabel,
+  ListItemText,
   ListSubheader,
+  Menu,
   MenuItem,
   Select,
+  Snackbar,
   Stack,
   TextField,
-  ToggleButton,
-  Tooltip,
   Typography,
 } from '@mui/material';
-import { Add, ContentCopy, Delete } from '@mui/icons-material';
+import { Add, MoreHoriz } from '@mui/icons-material';
 import chordProgressions from '../../../data/chordProgressions.json';
 import { Degree, Mode, SongKey } from '../../../utils/pitch';
 import {
@@ -29,21 +30,26 @@ import {
   Strum,
 } from '../types';
 import { chordLabel } from '../logic/chordSheet';
-import {
-  SYLLABLE_DEVIATION_THRESHOLD,
-  analyzeSectionLyrics,
-} from '../logic/lyrics';
+import { moveBarIndex } from '../logic/chordKeys';
+import { analyzeSectionLyrics } from '../logic/lyrics';
+import { suggestChordsForBar } from '../logic/nextChords';
 import {
   addBar,
   applyProgression,
+  distributeLyrics,
+  duplicateBar,
   duplicateBars,
+  insertBar,
   removeBar,
   removeSection,
+  splitLyricLines,
   toSongChord,
   updateBar,
   updateSection,
 } from '../logic/songEdits';
-import ChordPicker, { degreeLabel } from './ChordPicker';
+import BarCell, { BarMenuAction } from './BarCell';
+import ChordPopover from './ChordPopover';
+import { degreeLabel } from './ChordPicker';
 
 type SongUpdate = (update: (song: Song) => Song) => void;
 
@@ -74,15 +80,17 @@ const findPreset = (id: string) =>
 const DENSE_INPUTS = {
   '& .MuiInputBase-input, & .MuiSelect-select': { py: 0.75 },
 };
-const TINY_CHIP = { height: 20, fontSize: '0.7rem' };
 
 interface SectionEditorProps {
   section: Section;
   shapeKey: SongKey;
   onUpdate: SongUpdate;
   currentBarIndex?: number | null; // 재생 중인 마디
-  selectedBarIndex?: number | null; // 다음 코드 추천 기준 마디
-  onSelectBar?: (sectionId: string, barIndex: number) => void;
+}
+
+interface ChordTarget {
+  index: number;
+  anchor: HTMLElement;
 }
 
 function SectionEditor({
@@ -90,20 +98,128 @@ function SectionEditor({
   shapeKey,
   onUpdate,
   currentBarIndex = null,
-  selectedBarIndex = null,
-  onSelectBar,
 }: SectionEditorProps) {
   const [presetId, setPresetId] = useState('');
-  const [pickingBar, setPickingBar] = useState<number | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [chordTarget, setChordTarget] = useState<ChordTarget | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const chordButtons = useRef<(HTMLElement | null)[]>([]);
+  const lyricInputs = useRef<(HTMLInputElement | null)[]>([]);
+  const barsRef = useRef(section.bars);
+  barsRef.current = section.bars;
+
   const lyricInfo = useMemo(
     () => analyzeSectionLyrics(section.bars),
     [section.bars],
   );
   const preset = presetId ? findPreset(presetId) : undefined;
   const id = section.id;
+  const barCount = section.bars.length;
 
-  const setBarChord = (barIndex: number, chord: SongChord | null) =>
-    onUpdate((song) => updateBar(song, id, barIndex, { chord }));
+  const registerChordButton = useCallback(
+    (index: number, element: HTMLElement | null) => {
+      chordButtons.current[index] = element;
+    },
+    [],
+  );
+  const registerLyricInput = useCallback(
+    (index: number, element: HTMLInputElement | null) => {
+      lyricInputs.current[index] = element;
+    },
+    [],
+  );
+
+  const onOpenChord = useCallback((index: number, anchor: HTMLElement) => {
+    setChordTarget({ index, anchor });
+  }, []);
+
+  const moveChordTarget = (delta: -1 | 1) => {
+    if (!chordTarget) return;
+    const index = moveBarIndex(chordTarget.index, delta, barCount);
+    const anchor = chordButtons.current[index];
+    if (anchor) setChordTarget({ index, anchor });
+  };
+
+  const pickChord = (chord: SongChord | null, viaKey: boolean) => {
+    if (!chordTarget) return;
+    const { index } = chordTarget;
+    onUpdate((song) => updateBar(song, id, index, { chord }));
+    // 숫자키로 고르면 다음 마디로 넘어가 이어서 고른다. 마지막 마디거나
+    // 마우스로 골랐으면 닫는다.
+    if (viaKey && index < barCount - 1) {
+      const anchor = chordButtons.current[index + 1];
+      if (anchor) {
+        setChordTarget({ index: index + 1, anchor });
+        return;
+      }
+    }
+    setChordTarget(null);
+  };
+
+  const onLyricChange = useCallback(
+    (index: number, lyric: string) =>
+      onUpdate((song) => updateBar(song, id, index, { lyric })),
+    [id, onUpdate],
+  );
+
+  // Enter: 다음 마디 가사, Shift+Enter: 앞 마디 가사. 한글 조합 중에는 무시한다.
+  const onLyricKeyDown = useCallback(
+    (index: number, event: React.KeyboardEvent) => {
+      if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+      event.preventDefault();
+      const next = index + (event.shiftKey ? -1 : 1);
+      lyricInputs.current[next]?.focus();
+    },
+    [],
+  );
+
+  // 여러 줄을 붙여 넣으면 이 마디부터 한 줄씩 나눠 넣는다.
+  const onLyricPaste = useCallback(
+    (index: number, event: React.ClipboardEvent) => {
+      const text = event.clipboardData.getData('text');
+      if (!/\r|\n/.test(text)) return;
+      const lines = splitLyricLines(text);
+      if (lines.length <= 1) return;
+      event.preventDefault();
+      onUpdate((song) => distributeLyrics(song, id, index, text).song);
+      const added = Math.max(0, index + lines.length - barsRef.current.length);
+      setMessage(
+        `${lines.length}마디에 가사를 나눠 넣었습니다` +
+          (added > 0 ? ` (마디 ${added}개 추가)` : ''),
+      );
+    },
+    [id, onUpdate],
+  );
+
+  const onMenu = useCallback(
+    (index: number, action: BarMenuAction) => {
+      onUpdate((song) => {
+        switch (action) {
+          case 'insertBefore':
+            return insertBar(song, id, index);
+          case 'duplicate':
+            return duplicateBar(song, id, index);
+          case 'toggleSpoken':
+            return updateBar(song, id, index, {
+              spoken: !song.sections[id]?.bars[index]?.spoken,
+            });
+          case 'delete':
+            return removeBar(song, id, index);
+        }
+      });
+    },
+    [id, onUpdate],
+  );
+
+  const target =
+    chordTarget && section.bars[chordTarget.index] ? chordTarget : null;
+  const targetSuggestions = useMemo(
+    () =>
+      target
+        ? suggestChordsForBar(section.bars, target.index, shapeKey.mode)
+        : null,
+    [target, section.bars, shapeKey.mode],
+  );
 
   return (
     <Stack spacing={1}>
@@ -147,7 +263,7 @@ function SectionEditor({
             ))}
           </Select>
         </FormControl>
-        <FormControl size="small" sx={{ width: 160 }}>
+        <FormControl size="small" sx={{ width: 170 }}>
           <InputLabel id={`${id}-strum`}>스트럼</InputLabel>
           <Select
             labelId={`${id}-strum`}
@@ -205,16 +321,35 @@ function SectionEditor({
         >
           적용
         </Button>
-        <Tooltip title="섹션 삭제">
-          <IconButton
-            size="small"
-            color="error"
-            aria-label="섹션 삭제"
-            onClick={() => onUpdate((song) => removeSection(song, id))}
+        <IconButton
+          size="small"
+          aria-label={`${section.name} 섹션 메뉴`}
+          onClick={(event) => setMenuAnchor(event.currentTarget)}
+        >
+          <MoreHoriz fontSize="small" />
+        </IconButton>
+        <Menu
+          anchorEl={menuAnchor}
+          open={menuAnchor !== null}
+          onClose={() => setMenuAnchor(null)}
+        >
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onUpdate((song) => duplicateBars(song, id));
+            }}
           >
-            <Delete fontSize="small" />
-          </IconButton>
-        </Tooltip>
+            <ListItemText>마디 전체 복제 (×2)</ListItemText>
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              onUpdate((song) => removeSection(song, id));
+            }}
+          >
+            <ListItemText sx={{ color: 'error.main' }}>섹션 삭제</ListItemText>
+          </MenuItem>
+        </Menu>
       </Stack>
       {preset && (
         <Typography variant="caption" color="text.secondary">
@@ -223,177 +358,80 @@ function SectionEditor({
         </Typography>
       )}
 
-      <Stack spacing={0.5}>
-        {section.bars.map((bar, barIndex) => {
-          const info = lyricInfo.bars[barIndex];
-          return (
-            <Stack
-              key={barIndex}
-              onFocusCapture={() => onSelectBar?.(id, barIndex)}
-              onClickCapture={() => onSelectBar?.(id, barIndex)}
-              direction="row"
-              spacing={1}
-              alignItems="center"
-              flexWrap="wrap"
-              useFlexGap
-              sx={{
-                px: 1,
-                py: 0.5,
-                borderRadius: 1.5,
-                bgcolor:
-                  barIndex === currentBarIndex
-                    ? '#f0edff'
-                    : 'rgba(255,255,255,.7)',
-                outline:
-                  barIndex === currentBarIndex
-                    ? '2px solid #7664bb'
-                    : barIndex === selectedBarIndex
-                      ? '2px dashed #9d8fd0'
-                      : 'none',
-                transition: 'background-color .15s',
-              }}
-            >
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ width: 18, textAlign: 'right', flexShrink: 0 }}
-              >
-                {barIndex + 1}
-              </Typography>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => setPickingBar(barIndex)}
-                sx={{
-                  minWidth: 84,
-                  height: 34,
-                  textTransform: 'none',
-                  gap: 0.75,
-                  flexShrink: 0,
-                }}
-              >
-                <Typography fontWeight={700} fontSize="0.95rem">
-                  {chordLabel(bar.chord, shapeKey)}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {bar.chord ? degreeLabel(bar.chord) : ''}
-                </Typography>
-              </Button>
-              <TextField
-                size="small"
-                placeholder="가사"
-                value={bar.lyric ?? ''}
-                onChange={(event) =>
-                  onUpdate((song) =>
-                    updateBar(song, id, barIndex, {
-                      lyric: event.target.value,
-                    }),
-                  )
-                }
-                sx={{
-                  // 휴대폰에서는 코드 버튼과 같은 줄에, 넓은 화면에서는 남는 폭을 쓴다.
-                  flex: { xs: '1 1 0', sm: '1 1 200px' },
-                  minWidth: { xs: 120, sm: 0 },
-                  '& .MuiInputBase-input': {
-                    py: 0.75,
-                    fontStyle: bar.spoken ? 'italic' : 'normal',
-                  },
-                }}
-              />
-              {/* 경고가 생겨도 가사 칸 폭이 바뀌지 않도록 자리를 고정한다. */}
-              <Stack
-                direction="row"
-                spacing={0.5}
-                alignItems="center"
-                sx={{ width: 128, flexShrink: 0 }}
-              >
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ width: 36 }}
-                >
-                  {info.syllables}음절
-                </Typography>
-                {info.hardToHold && (
-                  <Tooltip title="줄 끝 글자에 받침이 있어 길게 끌기 어렵습니다.">
-                    <Chip
-                      size="small"
-                      color="info"
-                      label="받침"
-                      sx={TINY_CHIP}
-                    />
-                  </Tooltip>
-                )}
-                {info.deviates && (
-                  <Tooltip
-                    title={`섹션 평균(${lyricInfo.average?.toFixed(1)}음절)에서 ${SYLLABLE_DEVIATION_THRESHOLD}음절 이상 벗어납니다.`}
-                  >
-                    <Chip
-                      size="small"
-                      color="warning"
-                      label="편차"
-                      sx={TINY_CHIP}
-                    />
-                  </Tooltip>
-                )}
-              </Stack>
-              <Tooltip title="반주를 멈추고 말로 하는 마디">
-                <ToggleButton
-                  size="small"
-                  value="spoken"
-                  selected={Boolean(bar.spoken)}
-                  onChange={() =>
-                    onUpdate((song) =>
-                      updateBar(song, id, barIndex, { spoken: !bar.spoken }),
-                    )
-                  }
-                  sx={{ py: 0.25, px: 1, flexShrink: 0 }}
-                >
-                  말로
-                </ToggleButton>
-              </Tooltip>
-              <IconButton
-                size="small"
-                aria-label={`${barIndex + 1}마디 삭제`}
-                disabled={section.bars.length <= 1}
-                onClick={() =>
-                  onUpdate((song) => removeBar(song, id, barIndex))
-                }
-              >
-                <Delete fontSize="small" />
-              </IconButton>
-            </Stack>
-          );
-        })}
-      </Stack>
-
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      {/* 악보처럼 넓은 화면은 한 줄에 4마디, 휴대폰은 2마디 */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: 'repeat(2, minmax(0, 1fr))',
+            md: 'repeat(4, minmax(0, 1fr))',
+          },
+          gap: 1,
+        }}
+      >
+        {section.bars.map((bar, index) => (
+          <BarCell
+            key={index}
+            sectionId={id}
+            index={index}
+            bar={bar}
+            chordName={chordLabel(bar.chord, shapeKey)}
+            degree={bar.chord ? degreeLabel(bar.chord) : ''}
+            info={lyricInfo.bars[index]}
+            averageSyllables={lyricInfo.average}
+            playing={index === currentBarIndex}
+            selected={index === target?.index}
+            canDelete={barCount > 1}
+            onOpenChord={onOpenChord}
+            onLyricChange={onLyricChange}
+            onLyricKeyDown={onLyricKeyDown}
+            onLyricPaste={onLyricPaste}
+            onMenu={onMenu}
+            registerChordButton={registerChordButton}
+            registerLyricInput={registerLyricInput}
+          />
+        ))}
         <Button
-          size="small"
           startIcon={<Add />}
           onClick={() => onUpdate((song) => addBar(song, id))}
+          sx={{
+            minHeight: 84,
+            border: '2px dashed',
+            borderColor: 'rgba(0,0,0,.2)',
+            borderRadius: 1.5,
+            bgcolor: 'rgba(255,255,255,.45)',
+          }}
         >
           마디 추가
         </Button>
-        <Button
-          size="small"
-          startIcon={<ContentCopy />}
-          onClick={() => onUpdate((song) => duplicateBars(song, id))}
-        >
-          마디 전체 복제 (×2)
-        </Button>
-      </Stack>
+      </Box>
 
-      {pickingBar !== null && section.bars[pickingBar] && (
-        <ChordPicker
-          open
-          title={`${section.name} ${pickingBar + 1}마디 코드`}
-          value={section.bars[pickingBar].chord}
+      {target && targetSuggestions && (
+        <ChordPopover
+          anchorEl={target.anchor}
+          title={`${section.name} ${target.index + 1}마디 코드`}
+          value={section.bars[target.index].chord}
           shapeKey={shapeKey}
-          onSelect={(chord) => setBarChord(pickingBar, chord)}
-          onClose={() => setPickingBar(null)}
+          previousName={
+            targetSuggestions.previous
+              ? chordLabel(targetSuggestions.previous, shapeKey)
+              : null
+          }
+          suggestions={targetSuggestions.suggestions}
+          canPrev={target.index > 0}
+          canNext={target.index < barCount - 1}
+          onPick={pickChord}
+          onMove={moveChordTarget}
+          onClose={() => setChordTarget(null)}
         />
       )}
+
+      <Snackbar
+        open={message !== null}
+        autoHideDuration={3000}
+        onClose={() => setMessage(null)}
+        message={message}
+      />
     </Stack>
   );
 }

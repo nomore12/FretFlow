@@ -11,7 +11,7 @@ import {
   validateTransitions,
 } from './nextChords';
 import { buildPlaybackBars } from './playback';
-import { applyKeyAndCapo, materializeSong, setNextBarChord } from './songEdits';
+import { applyKeyAndCapo, materializeSong } from './songEdits';
 import { readSongData } from './songIO';
 import { buildTimeline } from './timeline';
 
@@ -121,19 +121,5 @@ describe('다음 코드 추천', () => {
         'major',
       )[0].chord,
     ).toEqual(I);
-  });
-
-  it('클릭하면 다음 마디에 적용하고, 마지막 마디면 새 마디를 붙인다', () => {
-    let song = setNextBarChord(sample(), 'intro', 0, V);
-    expect(song.sections.intro.bars[1].chord).toEqual(V);
-    song = setNextBarChord(song, 'intro', 3, I);
-    expect(song.sections.intro.bars).toHaveLength(5);
-    expect(song.sections.intro.bars[4]).toEqual({ chord: I });
-    // 가사는 유지
-    const verse = setNextBarChord(sample(), 'verse', 0, vi);
-    expect(verse.sections.verse.bars[1]).toEqual({
-      chord: vi,
-      lyric: '연재분 정주행',
-    });
   });
 });

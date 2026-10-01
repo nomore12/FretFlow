@@ -11,7 +11,11 @@ import {
   Box,
   Button,
   Container,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -21,23 +25,18 @@ import {
   Tabs,
   Typography,
 } from '@mui/material';
-import { Add, ArrowBack, FileDownload } from '@mui/icons-material';
+import { Add, ArrowBack, Close, FileDownload } from '@mui/icons-material';
 import { PracticePanel } from '../../components/practice/PracticeLayout';
 import useSongStore from '../../store/useSongStore';
 import { shapeKey } from '../../utils/pitch';
 import { SECTION_KINDS, SECTION_KIND_LABELS, SectionKind, Song } from './types';
 import { buildChordSheet } from './logic/chordSheet';
-import {
-  addSection,
-  applyKeyAndCapo,
-  newId,
-  setNextBarChord,
-} from './logic/songEdits';
+import { addSection, applyKeyAndCapo, newId } from './logic/songEdits';
 import { serializeSong } from './logic/songIO';
 import ChordSheetView, { SheetHighlight } from './components/ChordSheetView';
 import PlaybackPanel, { RecordingControls } from './components/PlaybackPanel';
 import TakesPanel from './components/TakesPanel';
-import AssistPanel, { BarSelection } from './components/AssistPanel';
+import KeyCapoCalculator from './components/KeyCapoCalculator';
 import { Take } from './recording/takes';
 import useTakePlayer from './recording/useTakePlayer';
 import useTakeRecorder from './recording/useTakeRecorder';
@@ -101,7 +100,7 @@ function SongEditor({ song }: { song: Song }) {
   const [chordVolumeDb, setChordVolumeDb] = useState(-6);
   const [guideTone, setGuideTone] = useState(false);
   const [guideVolumeDb, setGuideVolumeDb] = useState(0);
-  const [selection, setSelection] = useState<BarSelection | null>(null);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
   const transportRef = useRef<HTMLDivElement>(null);
   const [transportHeight, setTransportHeight] = useState(0);
   useLayoutEffect(() => {
@@ -113,16 +112,6 @@ function SongEditor({ song }: { song: Song }) {
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
-  const asideTop = transportHeight + 16;
-  const selectBar = useCallback(
-    (sectionId: string, barIndex: number) =>
-      setSelection((previous) =>
-        previous?.sectionId === sectionId && previous.barIndex === barIndex
-          ? previous
-          : { sectionId, barIndex },
-      ),
-    [],
-  );
 
   const update = useCallback(
     (recipe: (song: Song) => Song) => updateSong(id, recipe),
@@ -270,6 +259,25 @@ function SongEditor({ song }: { song: Song }) {
     [current, playMode],
   );
 
+  // 재생 중인 마디가 화면 밖으로 나가면 따라간다. 가사를 입력하는 중에는 움직이지 않는다.
+  useEffect(() => {
+    if (!current || view !== 'edit') return;
+    const active = document.activeElement;
+    if (active && ['INPUT', 'TEXTAREA'].includes(active.tagName)) return;
+    const element = document.querySelector(
+      `[data-bar-key="${current.sectionId}:${current.barIndex}"]`,
+    );
+    if (!element) return;
+    const rect = element.getBoundingClientRect();
+    const visibleTop = transportHeight + 16;
+    if (rect.top < visibleTop || rect.bottom > window.innerHeight) {
+      window.scrollTo({
+        top: window.scrollY + rect.top - visibleTop - 24,
+        behavior: 'smooth',
+      });
+    }
+  }, [current, view, transportHeight]);
+
   return (
     <Container
       maxWidth="xl"
@@ -399,125 +407,92 @@ function SongEditor({ song }: { song: Song }) {
             <ChordSheetView sheet={sheet} current={highlight} />
           </Paper>
         ) : (
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: {
-                xs: 'minmax(0, 1fr)',
-                lg: 'minmax(0, 1fr) 360px',
-              },
-              gap: 2,
-              alignItems: 'start',
-            }}
-          >
-            <Stack spacing={2} sx={{ minWidth: 0 }}>
-              {/* 곡 설정과 재생 순서를 한 패널에 모은다. */}
-              <PracticePanel controls dense>
-                <Stack spacing={1.5}>
-                  <SongSettings
-                    song={song}
-                    onChange={(patch) => update((s) => ({ ...s, ...patch }))}
-                  />
-                  <OrderEditor song={song} onUpdate={update} />
-                </Stack>
-              </PracticePanel>
-
-              {sectionsInDisplayOrder(song).map((section) => (
-                <PracticePanel key={section.id} dense>
-                  <SectionEditor
-                    section={section}
-                    shapeKey={shape}
-                    onUpdate={update}
-                    currentBarIndex={
-                      current?.sectionId === section.id
-                        ? current.barIndex
-                        : null
-                    }
-                    selectedBarIndex={
-                      selection?.sectionId === section.id
-                        ? selection.barIndex
-                        : null
-                    }
-                    onSelectBar={selectBar}
-                  />
-                  {!song.order.includes(section.id) && (
-                    <Typography variant="caption" color="warning.main">
-                      이 섹션은 재생 순서에 들어 있지 않습니다.
-                    </Typography>
-                  )}
-                </PracticePanel>
-              ))}
-
-              <Stack direction="row" spacing={1} alignItems="center">
-                <FormControl size="small" sx={{ minWidth: 140 }}>
-                  <InputLabel id="new-section-kind">새 섹션</InputLabel>
-                  <Select
-                    labelId="new-section-kind"
-                    label="새 섹션"
-                    value={newKind}
-                    onChange={(event) =>
-                      setNewKind(event.target.value as SectionKind)
-                    }
-                  >
-                    {SECTION_KINDS.map((kind) => (
-                      <MenuItem key={kind} value={kind}>
-                        {SECTION_KIND_LABELS[kind]}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Button
-                  variant="contained"
-                  startIcon={<Add />}
-                  onClick={() => update((s) => addSection(s, newKind))}
-                >
-                  섹션 추가
-                </Button>
-              </Stack>
-            </Stack>
-
-            {/* 보조 패널: 넓은 화면에서는 오른쪽에 붙어 따라온다. */}
-            <Box
-              component="aside"
-              className="no-print"
-              sx={{
-                minWidth: 0,
-                position: { lg: 'sticky' },
-                // 위에 붙은 재생 바 아래에 자리 잡는다.
-                top: { lg: asideTop },
-                maxHeight: { lg: `calc(100vh - ${asideTop + 16}px)` },
-                overflowY: { lg: 'auto' },
-              }}
-            >
-              <PracticePanel dense>
-                <AssistPanel
+          <Stack spacing={2} sx={{ minWidth: 0 }}>
+            {/* 곡 설정과 재생 순서를 한 패널에 모은다. */}
+            <PracticePanel controls dense>
+              <Stack spacing={1.5}>
+                <SongSettings
                   song={song}
-                  shapeKey={shape}
-                  selection={selection}
-                  onApplyCapo={(tonic, capo) =>
-                    update((s) => applyKeyAndCapo(s, tonic, capo))
-                  }
-                  onApplyNextChord={(target, chord) => {
-                    update((s) =>
-                      setNextBarChord(
-                        s,
-                        target.sectionId,
-                        target.barIndex,
-                        chord,
-                      ),
-                    );
-                    // 이어서 다음 코드를 고를 수 있게 선택을 한 칸 옮긴다.
-                    setSelection({
-                      sectionId: target.sectionId,
-                      barIndex: target.barIndex + 1,
-                    });
-                  }}
+                  onChange={(patch) => update((s) => ({ ...s, ...patch }))}
+                  onOpenCalculator={() => setCalculatorOpen(true)}
                 />
+                <OrderEditor song={song} onUpdate={update} />
+              </Stack>
+            </PracticePanel>
+
+            {sectionsInDisplayOrder(song).map((section) => (
+              <PracticePanel key={section.id} dense>
+                <SectionEditor
+                  section={section}
+                  shapeKey={shape}
+                  onUpdate={update}
+                  currentBarIndex={
+                    current?.sectionId === section.id ? current.barIndex : null
+                  }
+                />
+                {!song.order.includes(section.id) && (
+                  <Typography variant="caption" color="warning.main">
+                    이 섹션은 재생 순서에 들어 있지 않습니다.
+                  </Typography>
+                )}
               </PracticePanel>
-            </Box>
-          </Box>
+            ))}
+
+            <Stack direction="row" spacing={1} alignItems="center">
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel id="new-section-kind">새 섹션</InputLabel>
+                <Select
+                  labelId="new-section-kind"
+                  label="새 섹션"
+                  value={newKind}
+                  onChange={(event) =>
+                    setNewKind(event.target.value as SectionKind)
+                  }
+                >
+                  {SECTION_KINDS.map((kind) => (
+                    <MenuItem key={kind} value={kind}>
+                      {SECTION_KIND_LABELS[kind]}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Button
+                variant="contained"
+                startIcon={<Add />}
+                onClick={() => update((s) => addSection(s, newKind))}
+              >
+                섹션 추가
+              </Button>
+            </Stack>
+          </Stack>
         )}
       </Stack>
+
+      <Dialog
+        open={calculatorOpen}
+        onClose={() => setCalculatorOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ pr: 6 }}>
+          키·카포 계산기
+          <IconButton
+            aria-label="닫기"
+            onClick={() => setCalculatorOpen(false)}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <KeyCapoCalculator
+            song={song}
+            onApply={(tonic, capo) =>
+              update((s) => applyKeyAndCapo(s, tonic, capo))
+            }
+          />
+        </DialogContent>
+      </Dialog>
     </Container>
   );
 }
