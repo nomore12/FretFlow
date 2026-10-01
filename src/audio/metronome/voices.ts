@@ -78,13 +78,14 @@ export const SONG_VOICES: MetronomeOptions['voices'] = {
       volume: -8,
     },
   },
-  // 가이드 톤: 기타와 섞이지 않게 부드럽게 시작해 마디 동안 은은하게 남는 단음.
+  // 가이드 톤: 기타 코드 안에 같은 음이 있어 묻히기 쉬우므로, 음색을 다르게(FM)
+  // 하고 마디 내내 이어지게 한다. 기본 음량에서 기타 스트럼보다 5dB 정도 크다.
   guide: {
     kind: 'poly',
     maxPolyphony: 4,
     options: {
-      oscillator: { type: 'sine' },
-      envelope: { attack: 0.03, decay: 0.4, sustain: 0.5, release: 0.4 },
+      oscillator: { type: 'fmsine', modulationIndex: 2, harmonicity: 2 },
+      envelope: { attack: 0.02, decay: 0.3, sustain: 0.7, release: 0.4 },
       volume: -6,
     },
   },

@@ -100,7 +100,7 @@ function SongEditor({ song }: { song: Song }) {
   const [drumVolumeDb, setDrumVolumeDb] = useState(-12);
   const [chordVolumeDb, setChordVolumeDb] = useState(-6);
   const [guideTone, setGuideTone] = useState(false);
-  const [guideVolumeDb, setGuideVolumeDb] = useState(-6);
+  const [guideVolumeDb, setGuideVolumeDb] = useState(0);
   const [selection, setSelection] = useState<BarSelection | null>(null);
   const transportRef = useRef<HTMLDivElement>(null);
   const [transportHeight, setTransportHeight] = useState(0);

@@ -28,6 +28,8 @@ import { NO_CHORD, SPOKEN_MARK, chordLabel } from '../logic/chordSheet';
 import { TimelineBar } from '../logic/timeline';
 import { PlaybackMode, VOLUME_MIN_DB } from '../useSongPlayback';
 import { RecorderStatus } from '../recording/TakeRecorder';
+import { guideToneMidi } from '../logic/guideTone';
+import { midiToNoteName } from '../../../utils/voicing';
 import { ChordShape } from './ChordPicker';
 
 const VOLUME_MAX_DB = 0;
@@ -155,13 +157,23 @@ function BarLine({
   bar,
   label,
   emphasis,
+  guideTone = false,
 }: {
   song: Song;
   shapeKey: SongKey;
   bar: TimelineBar;
   label: string;
   emphasis: boolean;
+  guideTone?: boolean;
 }) {
+  // 지금 울리는 가이드 톤 음이름 (옥타브 숫자는 빼고 보여준다)
+  const guideName =
+    guideTone && bar.bar.chord && !bar.bar.spoken
+      ? midiToNoteName(guideToneMidi(bar.bar.chord, song.key)).replace(
+          /-?\d+$/,
+          '',
+        )
+      : null;
   const chord = bar.bar.spoken
     ? SPOKEN_MARK
     : chordLabel(bar.bar.chord, shapeKey);
@@ -203,6 +215,21 @@ function BarLine({
           >
             {chord}
           </Typography>
+          {guideName && (
+            <Typography
+              component="span"
+              sx={{
+                flexShrink: 0,
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                px: 0.75,
+                borderRadius: 1,
+                bgcolor: 'rgba(255,255,255,.25)',
+              }}
+            >
+              가이드 {guideName}
+            </Typography>
+          )}
           <Typography
             noWrap
             sx={{
@@ -426,6 +453,7 @@ export default function PlaybackPanel({
               bar={current}
               label="지금"
               emphasis
+              guideTone={guideTone}
             />
             {next ? (
               <BarLine
