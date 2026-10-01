@@ -1,10 +1,13 @@
 import { QUALITIES, parseNote } from '../../../utils/pitch';
+import { MELODY_STEPS_PER_BAR } from './melody';
 import {
   BPM_MAX,
   BPM_MIN,
   Bar,
   CAPO_MAX,
+  MelodyNote,
   SCHEMA_VERSION,
+  SUPPORTED_SCHEMA_VERSIONS,
   SECTION_KINDS,
   STRUMS,
   Section,
@@ -80,7 +83,7 @@ function readSection(id: string, value: unknown): Section {
   }
   if (typeof value.name !== 'string') fail(`${where}: 이름이 없습니다.`);
   if (!Array.isArray(value.bars)) fail(`${where}: 마디 목록이 없습니다.`);
-  return {
+  const section: Section = {
     id,
     kind: value.kind as Section['kind'],
     name: value.name as string,
@@ -89,6 +92,40 @@ function readSection(id: string, value: unknown): Section {
       readBar(bar, `${where} ${index + 1}마디`),
     ),
   };
+  if (value.melody !== undefined) {
+    if (!Array.isArray(value.melody))
+      fail(`${where}: 멜로디 형식이 잘못되었습니다.`);
+    const melody = (value.melody as unknown[]).map((note, index) =>
+      readMelodyNote(note, `${where} 멜로디 ${index + 1}번째 음표`),
+    );
+    if (melody.length > 0) section.melody = melody;
+  }
+  return section;
+}
+
+function readMelodyNote(value: unknown, where: string): MelodyNote {
+  if (!isRecord(value)) return fail(`${where}: 형식이 잘못되었습니다.`);
+  const { bar, step, length, degree, accidental, octave } = value;
+  if (!isIntIn(bar, 0, 999)) fail(`${where}: 마디 번호가 잘못되었습니다.`);
+  if (!isIntIn(step, 0, MELODY_STEPS_PER_BAR - 1))
+    fail(`${where}: 칸 위치가 잘못되었습니다.`);
+  if (!isIntIn(length, 1, MELODY_STEPS_PER_BAR - (step as number))) {
+    fail(`${where}: 길이가 마디를 넘습니다.`);
+  }
+  if (!isIntIn(degree, 1, 7)) fail(`${where}: 도수는 1~7이어야 합니다.`);
+  if (accidental !== undefined && accidental !== -1 && accidental !== 1) {
+    fail(`${where}: 임시표는 -1 또는 1이어야 합니다.`);
+  }
+  if (!isIntIn(octave, -3, 3)) fail(`${where}: 옥타브가 잘못되었습니다.`);
+  const note: MelodyNote = {
+    bar: bar as number,
+    step: step as number,
+    length: length as number,
+    degree: degree as number,
+    octave: octave as number,
+  };
+  if (accidental !== undefined) note.accidental = accidental as -1 | 1;
+  return note;
 }
 
 /** 가져온 JSON 값을 검증해 곡 본문으로 만든다. */
@@ -96,9 +133,10 @@ export function readSongData(value: unknown): ParseResult {
   try {
     if (!isRecord(value)) fail('곡 파일 형식이 아닙니다.');
     const song = value as Record<string, unknown>;
-    if (song.schemaVersion !== SCHEMA_VERSION) {
+    // 버전 1 파일은 멜로디가 없는 같은 형식이라 그대로 읽어 2로 올린다.
+    if (!SUPPORTED_SCHEMA_VERSIONS.includes(song.schemaVersion as number)) {
       fail(
-        `지원하지 않는 곡 파일 버전입니다 (파일: ${String(song.schemaVersion)}, 지원: ${SCHEMA_VERSION}).`,
+        `지원하지 않는 곡 파일 버전입니다 (파일: ${String(song.schemaVersion)}, 지원: ${SUPPORTED_SCHEMA_VERSIONS.join(', ')}).`,
       );
     }
     if (typeof song.title !== 'string') fail('제목이 없습니다.');

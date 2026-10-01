@@ -1,6 +1,7 @@
 import { Degree, QUALITIES } from '../../../utils/pitch';
 import {
   Bar,
+  MelodyNote,
   SCHEMA_VERSION,
   SECTION_KIND_LABELS,
   Section,
@@ -9,6 +10,13 @@ import {
   SongChord,
 } from '../types';
 import { SongData } from './songIO';
+import {
+  melodyAfterDuplicateAll,
+  melodyAfterDuplicateBar,
+  melodyAfterInsertBar,
+  melodyAfterRemoveBar,
+  melodyWithinBars,
+} from './melody';
 
 // 곡 편집용 순수 함수. 모두 새 객체를 돌려주고 updatedAt은 스토어가 갱신한다.
 
@@ -55,6 +63,25 @@ const withSection = (
     sections: { ...song.sections, [sectionId]: update(section) },
   };
 };
+
+/** 섹션의 멜로디를 바꾼다. 비면 필드를 지운다 (멜로디 없는 곡과 같은 모양). */
+function withMelody(
+  section: Section,
+  melody: MelodyNote[] | undefined,
+): Section {
+  const next = { ...section };
+  if (melody && melody.length > 0) next.melody = melody;
+  else delete next.melody;
+  return next;
+}
+
+export function setSectionMelody(
+  song: Song,
+  sectionId: string,
+  melody: MelodyNote[],
+): Song {
+  return withSection(song, sectionId, (section) => withMelody(section, melody));
+}
 
 /** 같은 종류가 이미 있으면 "벌스 2"처럼 번호를 붙인다. */
 function nextSectionName(song: Song, kind: SectionKind) {
@@ -136,18 +163,26 @@ export function removeBar(
   sectionId: string,
   barIndex: number,
 ): Song {
-  return withSection(song, sectionId, (section) => ({
-    ...section,
-    bars: section.bars.filter((_, index) => index !== barIndex),
-  }));
+  return withSection(song, sectionId, (section) =>
+    withMelody(
+      {
+        ...section,
+        bars: section.bars.filter((_, index) => index !== barIndex),
+      },
+      section.melody && melodyAfterRemoveBar(section.melody, barIndex),
+    ),
+  );
 }
 
 /** 섹션 안 마디 전체를 한 번 더 이어 붙인다 (×2). */
 export function duplicateBars(song: Song, sectionId: string): Song {
-  return withSection(song, sectionId, (section) => ({
-    ...section,
-    bars: [...section.bars, ...structuredClone(section.bars)],
-  }));
+  return withSection(song, sectionId, (section) =>
+    withMelody(
+      { ...section, bars: [...section.bars, ...structuredClone(section.bars)] },
+      section.melody &&
+        melodyAfterDuplicateAll(section.melody, section.bars.length),
+    ),
+  );
 }
 
 /** 진행 프리셋의 코드를 곡 모델 코드로 바꾼다. */
@@ -173,12 +208,17 @@ export function applyProgression(
   sectionId: string,
   pattern: Degree[],
 ): Song {
-  return withSection(song, sectionId, (section) => ({
-    ...section,
-    bars: pattern.map((chord, index) =>
-      normalizeBar({ ...section.bars[index], chord: toSongChord(chord) }),
+  return withSection(song, sectionId, (section) =>
+    withMelody(
+      {
+        ...section,
+        bars: pattern.map((chord, index) =>
+          normalizeBar({ ...section.bars[index], chord: toSongChord(chord) }),
+        ),
+      },
+      section.melody && melodyWithinBars(section.melody, pattern.length),
     ),
-  }));
+  );
 }
 
 export function appendToOrder(song: Song, sectionId: string): Song {
@@ -216,7 +256,10 @@ export function insertBar(song: Song, sectionId: string, index: number): Song {
     const chord = (section.bars[at] ?? section.bars[at - 1])?.chord ?? null;
     const bars = [...section.bars];
     bars.splice(at, 0, { chord });
-    return { ...section, bars };
+    return withMelody(
+      { ...section, bars },
+      section.melody && melodyAfterInsertBar(section.melody, at),
+    );
   });
 }
 
@@ -230,7 +273,10 @@ export function duplicateBar(
     if (!section.bars[index]) return section;
     const bars = [...section.bars];
     bars.splice(index + 1, 0, structuredClone(section.bars[index]));
-    return { ...section, bars };
+    return withMelody(
+      { ...section, bars },
+      section.melody && melodyAfterDuplicateBar(section.melody, index),
+    );
   });
 }
 

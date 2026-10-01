@@ -1,6 +1,8 @@
 import { Quality, SongKey } from '../../utils/pitch';
 
-export const SCHEMA_VERSION = 1;
+// 2: 섹션에 멜로디(melody)가 생겼다. 1로 저장된 곡은 멜로디 없이 읽는다.
+export const SCHEMA_VERSION = 2;
+export const SUPPORTED_SCHEMA_VERSIONS = [1, 2];
 
 export type SectionKind =
   | 'intro'
@@ -51,12 +53,23 @@ export interface Bar {
   spoken?: boolean; // 반주·드럼을 멈추고 말로 처리
 }
 
+// 멜로디 음표. 음높이는 코드처럼 도수로 저장해 키를 바꾸면 같이 옮겨진다.
+export interface MelodyNote {
+  bar: number; // 섹션 안 마디 번호
+  step: number; // 마디 안 16분음표 칸 (0~15)
+  length: number; // 칸 수 (마디 끝을 넘지 않는다)
+  degree: number; // 1~7
+  accidental?: -1 | 1; // 반음 단위
+  octave: number; // 기준 옥타브(으뜸음이 F#3~F4에 오는 옥타브)에서 몇 옥타브 위아래
+}
+
 export interface Section {
   id: string;
   kind: SectionKind;
   name: string;
   strum: Strum;
   bars: Bar[];
+  melody?: MelodyNote[]; // 한 번에 한 음만 (겹치지 않음)
 }
 
 export interface Song {

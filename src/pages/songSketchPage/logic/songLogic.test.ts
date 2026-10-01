@@ -193,13 +193,21 @@ describe('내보내기·가져오기', () => {
     }
   });
 
-  it('schemaVersion이 다르면 거부한다', () => {
-    const data = { ...sampleSongs[0], schemaVersion: 2 };
+  it('지원하지 않는 schemaVersion은 거부한다', () => {
+    const data = { ...sampleSongs[0], schemaVersion: 3 };
     const result = parseSongJson(JSON.stringify(data));
     expect(result).toEqual({
       ok: false,
-      error: '지원하지 않는 곡 파일 버전입니다 (파일: 2, 지원: 1).',
+      error: '지원하지 않는 곡 파일 버전입니다 (파일: 3, 지원: 1, 2).',
     });
+  });
+
+  it('버전 1 파일은 멜로디 없이 읽어 버전 2가 된다', () => {
+    const result = readSongData(sampleSongs[0]);
+    expect(result.ok && result.data.schemaVersion).toBe(2);
+    expect(
+      result.ok && Object.values(result.data.sections).some((s) => s.melody),
+    ).toBe(false);
   });
 
   it('잘못된 파일을 이유와 함께 거부한다', () => {

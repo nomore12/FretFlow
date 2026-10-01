@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import sampleSongs from '../data/sampleSongs.json';
-import { Song } from '../pages/songSketchPage/types';
+import { SCHEMA_VERSION, Song } from '../pages/songSketchPage/types';
 import {
   createSongData,
   materializeSong,
@@ -9,6 +9,23 @@ import {
 } from '../pages/songSketchPage/logic/songEdits';
 import { SongData, readSongData } from '../pages/songSketchPage/logic/songIO';
 import { deleteTakesForSong } from '../pages/songSketchPage/recording/takesDb';
+
+/**
+ * 저장된 곡 상태를 현재 형식으로 올린다.
+ * 1 → 2: 섹션에 멜로디가 생겼다. 기존 곡은 멜로디 없이 그대로 쓰고 버전만 올린다.
+ */
+export function migrateSongState(persisted: unknown, version: number) {
+  const state = (persisted ?? {}) as { songs?: Record<string, Song> };
+  if (version < 2 && state.songs) {
+    state.songs = Object.fromEntries(
+      Object.entries(state.songs).map(([id, song]) => [
+        id,
+        { ...song, schemaVersion: SCHEMA_VERSION },
+      ]),
+    );
+  }
+  return state as { songs: Record<string, Song> };
+}
 
 interface SongStore {
   songs: Record<string, Song>;
@@ -87,8 +104,9 @@ const useSongStore = create<SongStore>()(
       },
       {
         name: 'song-sketchpad-storage',
-        version: 1,
+        version: 2,
         partialize: (state) => ({ songs: state.songs }),
+        migrate: (persisted, version) => migrateSongState(persisted, version),
       },
     ),
     { name: 'SongStore' },
